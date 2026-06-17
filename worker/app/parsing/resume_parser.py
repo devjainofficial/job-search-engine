@@ -42,6 +42,9 @@ def parse_resume_text(text: str) -> Profile:
         ],
         response_format={"type": "json_object"},
         temperature=0,
+        # Gemini returns transient 429/503 under load; back off and retry rather
+        # than failing a parse outright (parsing is one-shot per resume).
+        num_retries=3,
     )
     content = response.choices[0].message.content or "{}"
     data = json.loads(content)

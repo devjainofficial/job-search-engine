@@ -1,9 +1,15 @@
 """Worker configuration loaded from the environment (.env at repo root or worker/)."""
 
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env by absolute path (worker/.env, then repo-root .env) so settings
+# load no matter which directory a script is launched from.
+_WORKER_DIR = Path(__file__).resolve().parents[1]
+_ENV_FILES = (_WORKER_DIR / ".env", _WORKER_DIR.parent / ".env")
 
 
 class Settings(BaseSettings):
@@ -22,8 +28,7 @@ class Settings(BaseSettings):
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 
     model_config = SettingsConfigDict(
-        # Look for .env in worker/ first, then the repo root.
-        env_file=(".env", "../.env"),
+        env_file=_ENV_FILES,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,
