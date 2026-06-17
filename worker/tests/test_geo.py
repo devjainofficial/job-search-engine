@@ -1,6 +1,21 @@
 """Location detection and ranking-boost tests."""
 
-from app.geo import is_india, is_remote, location_boost
+from app.geo import (
+    IN_COUNTRY,
+    OUT_COUNTRY,
+    REMOTE,
+    classify_location,
+    is_india,
+    is_remote,
+    location_boost,
+)
+
+
+def test_classify_location_buckets():
+    me = "Gandhinagar, Gujarat"
+    assert classify_location("Bengaluru, India", me) == IN_COUNTRY
+    assert classify_location("Remote", me) == REMOTE
+    assert classify_location("San Francisco, CA", me) == OUT_COUNTRY
 
 
 def test_remote_detection():

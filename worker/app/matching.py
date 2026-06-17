@@ -9,13 +9,21 @@ title is unrelated cannot sneak in just because its description mentions a skill
 """
 
 from app.canonical import _slug, normalize_company
-from app.geo import location_boost
+from app.geo import OUT_COUNTRY, classify_location, location_boost
 from app.models import CanonicalJob, MatchedJob, Profile
 from app.seniority import seniority_ok
 
 # Default cap on how many jobs one company may contribute to a single digest, so
 # a company posting the same role across many locations cannot flood it.
 DEFAULT_MAX_PER_COMPANY = 2
+
+# Location preferences. "in_country" = user's country + remote (no relocation);
+# "outside_only" = foreign-located roles; "mix" = balanced ~50/50; "any" = no
+# location filter (rank only).
+SCOPE_IN = "in_country"
+SCOPE_OUT = "outside_only"
+SCOPE_MIX = "mix"
+SCOPE_ANY = "any"
 
 # Tokens too generic to signal role fit on their own. A bare overlap on these
 # (e.g. "developer", or "ai" matching "AI Cinematic Video Editor") must not
@@ -105,15 +113,39 @@ def score_job(job: CanonicalJob, profile: Profile) -> float:
     return score
 
 
+def _take_with_company_cap(
+    candidates: list[MatchedJob],
+    limit: int,
+    max_per_company: int,
+    per_company: dict[str, int],
+    selected: list[MatchedJob],
+) -> None:
+    """Append from candidates into selected, honoring the per-company cap and limit."""
+    for m in candidates:
+        if len(selected) >= limit:
+            return
+        company = normalize_company(m.job.company)
+        if per_company.get(company, 0) >= max_per_company:
+            continue
+        selected.append(m)
+        per_company[company] = per_company.get(company, 0) + 1
+
+
+def _is_outside(job: CanonicalJob, profile: Profile) -> bool:
+    return classify_location(job.location, profile.location) == OUT_COUNTRY
+
+
 def match_jobs(
     jobs: list[CanonicalJob],
     profile: Profile,
     limit: int,
     max_per_company: int = DEFAULT_MAX_PER_COMPANY,
+    location_scope: str = SCOPE_ANY,
 ) -> list[MatchedJob]:
     """Return up to `limit` title-relevant jobs, ranked, with at most
     `max_per_company` from any single company. Roles below the candidate's
-    seniority (internships, new-grad) are filtered out."""
+    seniority are dropped, and results are filtered/balanced by location_scope:
+    in_country (country + remote), outside_only (foreign), mix (~50/50), or any."""
     relevant = [
         j for j in jobs
         if qualifies(j, profile) and seniority_ok(j.title, profile.years_experience)
@@ -121,14 +153,32 @@ def match_jobs(
     scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in relevant]
     scored.sort(key=lambda m: m.score, reverse=True)
 
+    if location_scope == SCOPE_IN:
+        scored = [m for m in scored if not _is_outside(m.job, profile)]
+    elif location_scope == SCOPE_OUT:
+        scored = [m for m in scored if _is_outside(m.job, profile)]
+
     selected: list[MatchedJob] = []
     per_company: dict[str, int] = {}
-    for m in scored:
-        company = normalize_company(m.job.company)
-        if per_company.get(company, 0) >= max_per_company:
-            continue
-        selected.append(m)
-        per_company[company] = per_company.get(company, 0) + 1
-        if len(selected) >= limit:
-            break
+
+    if location_scope == SCOPE_MIX:
+        # Alternate in-country/remote and outside roles toward an equal split,
+        # falling through to whichever side still has candidates.
+        inside = [m for m in scored if not _is_outside(m.job, profile)]
+        outside = [m for m in scored if _is_outside(m.job, profile)]
+        i = o = 0
+        turn_inside = True
+        while len(selected) < limit and (i < len(inside) or o < len(outside)):
+            if turn_inside and i < len(inside):
+                _take_with_company_cap(inside[i:i + 1], limit, max_per_company, per_company, selected); i += 1
+            elif not turn_inside and o < len(outside):
+                _take_with_company_cap(outside[o:o + 1], limit, max_per_company, per_company, selected); o += 1
+            elif i < len(inside):
+                _take_with_company_cap(inside[i:i + 1], limit, max_per_company, per_company, selected); i += 1
+            elif o < len(outside):
+                _take_with_company_cap(outside[o:o + 1], limit, max_per_company, per_company, selected); o += 1
+            turn_inside = not turn_inside
+        return selected
+
+    _take_with_company_cap(scored, limit, max_per_company, per_company, selected)
     return selected

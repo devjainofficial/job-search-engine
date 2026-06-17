@@ -45,6 +45,14 @@ export default function Home() {
           <input id="resume" name="resume" type="file" accept=".pdf,.docx,.doc,.txt" required />
           <p className="hint">We extract your role, skills, and location. Max 3 MB.</p>
 
+          <label htmlFor="location_scope">Where do you want jobs?</label>
+          <select id="location_scope" name="location_scope" defaultValue="mix">
+            <option value="mix">Both, balanced (50/50)</option>
+            <option value="in_country">Within my country (incl. remote)</option>
+            <option value="outside_only">Outside my country (international)</option>
+          </select>
+          <p className="hint">Based on the location in your resume. You can change this later.</p>
+
           <div className="consent">
             <input id="consent" name="consent" type="checkbox" value="yes" required />
             <span>

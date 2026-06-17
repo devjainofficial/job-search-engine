@@ -100,7 +100,7 @@ def get_active_users_with_profiles() -> list[dict]:
     users = (
         get_client()
         .table("users")
-        .select("id, telegram_chat_id, profiles(*), saved_searches(*)")
+        .select("id, telegram_chat_id, channel_prefs, profiles(*), saved_searches(*)")
         .not_.is_("telegram_chat_id", "null")
         .execute()
     )

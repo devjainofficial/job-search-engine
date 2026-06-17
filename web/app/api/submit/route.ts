@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
   const email = String(form.get("email") ?? "").trim();
   const consent = form.get("consent");
   const file = form.get("resume");
+  const SCOPES = ["mix", "in_country", "outside_only"];
+  const rawScope = String(form.get("location_scope") ?? "mix");
+  const locationScope = SCOPES.includes(rawScope) ? rawScope : "mix";
 
   // Validation
   if (!email || !email.includes("@")) {
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
     .insert({
       email,
       consent_at: new Date().toISOString(), // explicit consent (DPDP)
+      channel_prefs: { telegram: true, location_scope: locationScope },
     })
     .select("id")
     .single();
