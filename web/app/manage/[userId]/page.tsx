@@ -10,6 +10,7 @@ export default function Manage({ params }: { params: Promise<{ userId: string }>
   const [confirm, setConfirm] = useState(false);
   const [scope, setScope] = useState("mix");
   const [remote, setRemote] = useState("include_remote");
+  const [cities, setCities] = useState("");
   const [savedPref, setSavedPref] = useState(false);
 
   useEffect(() => {
@@ -18,11 +19,12 @@ export default function Manage({ params }: { params: Promise<{ userId: string }>
       .then((d) => {
         if (d.location_scope) setScope(d.location_scope);
         if (d.remote_mode) setRemote(d.remote_mode);
+        if (Array.isArray(d.preferred_locations)) setCities(d.preferred_locations.join(", "));
       })
       .catch(() => {});
   }, [userId]);
 
-  async function savePref(patch: { location_scope?: string; remote_mode?: string }) {
+  async function savePref(patch: { location_scope?: string; remote_mode?: string; preferred_locations?: string[] }) {
     if (patch.location_scope) setScope(patch.location_scope);
     if (patch.remote_mode) setRemote(patch.remote_mode);
     setSavedPref(false);
@@ -75,6 +77,12 @@ export default function Manage({ params }: { params: Promise<{ userId: string }>
             <option value="only_remote">Only remote</option>
             <option value="no_remote">No remote (onsite only)</option>
           </select>
+
+          <label htmlFor="cities">Preferred cities (optional)</label>
+          <input id="cities" type="text" value={cities} placeholder="e.g. Ahmedabad, Pune"
+                 onChange={(e) => setCities(e.target.value)}
+                 onBlur={() => savePref({ preferred_locations: cities.split(",").map((s) => s.trim()).filter(Boolean) })} />
+          <p className="hint">If set, overrides the location choice above. Comma-separated, up to 5.</p>
           {savedPref && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
         </div>
       )}

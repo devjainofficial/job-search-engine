@@ -39,6 +39,15 @@ OUT_COUNTRY = "out"    # a specific foreign location (would mean relocating)
 _OPEN_REMOTE = ("worldwide", "anywhere", "global")
 
 
+def location_matches(location: str | None, queries: list[str]) -> bool:
+    """True if the job location contains any of the (lowercased) query strings.
+    Used for city-specific filtering, e.g. ["ahmedabad", "gandhinagar"]."""
+    if not location:
+        return False
+    loc = location.lower()
+    return any(q and q in loc for q in queries)
+
+
 def classify_location(location: str | None, profile_location: str | None) -> str:
     """Bucket a job by where it is relative to the user. Open/worldwide remote
     counts as in-reach; region-locked remote that names a foreign place does not.

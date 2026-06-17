@@ -14,20 +14,27 @@ export async function GET(req: NextRequest) {
     .select("channel_prefs")
     .eq("id", userId)
     .single();
-  const prefs = (data?.channel_prefs as { location_scope?: string; remote_mode?: string }) ?? {};
+  const prefs = (data?.channel_prefs as {
+    location_scope?: string;
+    remote_mode?: string;
+    preferred_locations?: string[];
+  }) ?? {};
   return NextResponse.json({
     location_scope: prefs.location_scope ?? "mix",
     remote_mode: prefs.remote_mode ?? "include_remote",
+    preferred_locations: prefs.preferred_locations ?? [],
   });
 }
 
 // Update a user's location preference (stored in users.channel_prefs).
 // NOTE: unauthenticated for now; add identity checks before public launch.
 export async function POST(req: NextRequest) {
-  const { userId, location_scope, remote_mode } = await req.json().catch(() => ({}));
+  const { userId, location_scope, remote_mode, preferred_locations } = await req
+    .json()
+    .catch(() => ({}));
   if (!userId) return NextResponse.json({ error: "Missing userId" }, { status: 400 });
 
-  const update: Record<string, string> = {};
+  const update: Record<string, string | string[]> = {};
   if (location_scope !== undefined) {
     if (!SCOPES.includes(location_scope)) {
       return NextResponse.json({ error: "Invalid location_scope" }, { status: 400 });
@@ -39,6 +46,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid remote_mode" }, { status: 400 });
     }
     update.remote_mode = remote_mode;
+  }
+  if (preferred_locations !== undefined) {
+    if (!Array.isArray(preferred_locations)) {
+      return NextResponse.json({ error: "preferred_locations must be an array" }, { status: 400 });
+    }
+    update.preferred_locations = preferred_locations
+      .map((s) => String(s).trim())
+      .filter(Boolean)
+      .slice(0, 5);
   }
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "Nothing to update" }, { status: 400 });

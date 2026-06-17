@@ -78,6 +78,16 @@ def _fetch_query(query: str) -> list[CanonicalJob]:
     return collected
 
 
+def _fetch_adzuna_city(query: str, city: str) -> list[CanonicalJob]:
+    """Fetch Adzuna for a specific city (where=city) to deepen city coverage.
+    No-op if Adzuna keys are unset (the adapter returns [])."""
+    try:
+        return AdzunaSource().fetch(query, location=city)
+    except Exception as exc:
+        print(f"[run_daily] adzuna city fetch failed for '{query}'/'{city}': {exc}")
+        return []
+
+
 def run_daily() -> dict:
     settings = get_settings()
     users = get_active_users_with_profiles()
@@ -94,8 +104,24 @@ def run_daily() -> dict:
     bulk_pool = _fetch_bulk()
     jobs_by_query: dict[str, list[CanonicalJob]] = {q: _fetch_query(q) for q in distinct_queries}
 
+    # 2b. City-specific fetches: for users with preferred cities, pull Adzuna with
+    # where=<city> so city filtering has real depth. Batched by (query, city).
+    city_pairs: set[tuple[str, str]] = set()
+    for u in users:
+        q = user_queries.get(u["id"])
+        if not q:
+            continue
+        for city in (u.get("channel_prefs") or {}).get("preferred_locations") or []:
+            if city.strip():
+                city_pairs.add((q, city.strip()))
+    jobs_by_city: dict[tuple[str, str], list[CanonicalJob]] = {
+        pair: _fetch_adzuna_city(*pair) for pair in city_pairs
+    }
+
     all_jobs = list(bulk_pool)
     for jobs in jobs_by_query.values():
+        all_jobs.extend(jobs)
+    for jobs in jobs_by_city.values():
         all_jobs.extend(jobs)
     upsert_jobs(all_jobs)
 
@@ -108,12 +134,16 @@ def run_daily() -> dict:
         if not query:
             continue
         profile = _profile_of(u)
-        candidates = bulk_pool + jobs_by_query.get(query, [])
 
         # Location + remote preferences live in channel_prefs.
         prefs = u.get("channel_prefs") or {}
         scope = prefs.get("location_scope", SCOPE_MIX)
         remote_mode = prefs.get("remote_mode", REMOTE_INCLUDE)
+        preferred_locations = prefs.get("preferred_locations") or []
+
+        candidates = bulk_pool + jobs_by_query.get(query, [])
+        for city in preferred_locations:
+            candidates = candidates + jobs_by_city.get((query, city.strip()), [])
 
         sent_keys = get_sent_keys(user_id)
         fresh = [j for j in candidates if j.canonical_key not in sent_keys]
@@ -124,6 +154,7 @@ def run_daily() -> dict:
             max_per_company=settings.max_per_company,
             location_scope=scope,
             remote_mode=remote_mode,
+            preferred_locations=preferred_locations,
         )
         if not matches:
             continue

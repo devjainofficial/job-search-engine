@@ -9,7 +9,7 @@ title is unrelated cannot sneak in just because its description mentions a skill
 """
 
 from app.canonical import _slug, normalize_company
-from app.geo import OUT_COUNTRY, classify_location, is_remote, location_boost
+from app.geo import OUT_COUNTRY, classify_location, is_remote, location_boost, location_matches
 from app.models import CanonicalJob, MatchedJob, Profile
 from app.seniority import seniority_ok
 
@@ -148,12 +148,16 @@ def match_jobs(
     max_per_company: int = DEFAULT_MAX_PER_COMPANY,
     location_scope: str = SCOPE_ANY,
     remote_mode: str = REMOTE_INCLUDE,
+    preferred_locations: list[str] | None = None,
 ) -> list[MatchedJob]:
     """Return up to `limit` title-relevant jobs, ranked, with at most
     `max_per_company` from any single company. Roles below the candidate's
-    seniority are dropped. Results are filtered/balanced by location_scope
-    (in_country / outside_only / mix / any) and by remote_mode (only_remote /
-    no_remote / include_remote), which are independent axes."""
+    seniority are dropped. Results are filtered by remote_mode (only_remote /
+    no_remote / include_remote) and by location:
+    - if preferred_locations is given (e.g. ["ahmedabad"]), keep jobs in those
+      cities plus remote, ranking city matches first (overrides location_scope);
+    - otherwise filter/balance by location_scope (in_country / outside_only /
+      mix / any). remote_mode and location are independent axes."""
     relevant = [
         j for j in jobs
         if qualifies(j, profile) and seniority_ok(j.title, profile.years_experience)
@@ -163,6 +167,23 @@ def match_jobs(
         relevant = [j for j in relevant if is_remote(j.location)]
     elif remote_mode == REMOTE_NO:
         relevant = [j for j in relevant if not is_remote(j.location)]
+
+    # City-specific preference overrides the broad in/out/mix scope.
+    cities = [c.strip().lower() for c in (preferred_locations or []) if c.strip()]
+    if cities:
+        in_city = [j for j in relevant if location_matches(j.location, cities)]
+        # Remote roles are takeable from any city, so include them too (unless
+        # remote_mode already removed them above).
+        remote_extra = [j for j in relevant if not location_matches(j.location, cities) and is_remote(j.location)]
+        ranked = (
+            sorted((MatchedJob(job=j, score=score_job(j, profile)) for j in in_city),
+                   key=lambda m: m.score, reverse=True)
+            + sorted((MatchedJob(job=j, score=score_job(j, profile)) for j in remote_extra),
+                     key=lambda m: m.score, reverse=True)
+        )
+        selected: list[MatchedJob] = []
+        _take_with_company_cap(ranked, limit, max_per_company, {}, selected)
+        return selected
 
     scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in relevant]
     scored.sort(key=lambda m: m.score, reverse=True)

@@ -28,6 +28,11 @@ export async function POST(req: NextRequest) {
   const REMOTE_MODES = ["include_remote", "only_remote", "no_remote"];
   const rawRemote = String(form.get("remote_mode") ?? "include_remote");
   const remoteMode = REMOTE_MODES.includes(rawRemote) ? rawRemote : "include_remote";
+  const preferredLocations = String(form.get("preferred_locations") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5); // cap to keep it sane
 
   // Validation
   if (!email || !email.includes("@")) {
@@ -55,7 +60,12 @@ export async function POST(req: NextRequest) {
     .insert({
       email,
       consent_at: new Date().toISOString(), // explicit consent (DPDP)
-      channel_prefs: { telegram: true, location_scope: locationScope, remote_mode: remoteMode },
+      channel_prefs: {
+        telegram: true,
+        location_scope: locationScope,
+        remote_mode: remoteMode,
+        preferred_locations: preferredLocations,
+      },
     })
     .select("id")
     .single();

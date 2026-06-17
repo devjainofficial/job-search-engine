@@ -60,6 +60,14 @@ export default function Home() {
             <option value="no_remote">No remote (onsite only)</option>
           </select>
 
+          <label htmlFor="preferred_locations">Preferred cities (optional)</label>
+          <input id="preferred_locations" name="preferred_locations" type="text"
+                 placeholder="e.g. Ahmedabad, Pune" />
+          <p className="hint">
+            If set, we show jobs in these cities (plus remote per your setting above) and ignore the
+            broad location choice. Comma-separated, up to 5.
+          </p>
+
           <div className="consent">
             <input id="consent" name="consent" type="checkbox" value="yes" required />
             <span>
