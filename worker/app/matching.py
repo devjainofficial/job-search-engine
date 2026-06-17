@@ -9,7 +9,9 @@ title is unrelated cannot sneak in just because its description mentions a skill
 """
 
 from app.canonical import _slug, normalize_company
+from app.geo import location_boost
 from app.models import CanonicalJob, MatchedJob, Profile
+from app.seniority import seniority_ok
 
 # Default cap on how many jobs one company may contribute to a single digest, so
 # a company posting the same role across many locations cannot flood it.
@@ -97,6 +99,9 @@ def score_job(job: CanonicalJob, profile: Profile) -> float:
     skill_tokens = _tokens(*profile.skills)
     score += 0.5 * len(skill_tokens & body_tokens)
 
+    # Prefer roles the user can realistically take (remote / India-based).
+    score += location_boost(job.location, profile.location, profile.remote_pref)
+
     return score
 
 
@@ -107,8 +112,12 @@ def match_jobs(
     max_per_company: int = DEFAULT_MAX_PER_COMPANY,
 ) -> list[MatchedJob]:
     """Return up to `limit` title-relevant jobs, ranked, with at most
-    `max_per_company` from any single company."""
-    relevant = [j for j in jobs if qualifies(j, profile)]
+    `max_per_company` from any single company. Roles below the candidate's
+    seniority (internships, new-grad) are filtered out."""
+    relevant = [
+        j for j in jobs
+        if qualifies(j, profile) and seniority_ok(j.title, profile.years_experience)
+    ]
     scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in relevant]
     scored.sort(key=lambda m: m.score, reverse=True)
 

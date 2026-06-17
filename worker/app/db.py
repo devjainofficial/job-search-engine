@@ -3,6 +3,7 @@
 All DB access goes through here so adapters and the pipeline stay storage-agnostic.
 """
 
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 
 from supabase import Client, create_client
@@ -91,6 +92,34 @@ def upsert_jobs(jobs: list[CanonicalJob]) -> None:
 
 
 # --- sent_jobs (dedup ledger) ----------------------------------------------
+
+def prune_old_jobs(days: int) -> int:
+    """Delete job_cache rows older than `days`. Safe for dedup: sent_jobs keeps
+    its own canonical_keys, so pruning the cache never causes a resend."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    res = get_client().table("job_cache").delete().lt("fetched_at", cutoff).execute()
+    return len(res.data or [])
+
+
+# --- delete-my-data (DPDP) --------------------------------------------------
+
+def delete_user_data(user_id: str) -> dict:
+    """Erase a user and all derived personal data. Returns what was removed.
+
+    profiles/saved_searches/sent_jobs cascade from the users row; the raw resume
+    file in Storage (if any) is removed first since it is not in Postgres."""
+    client = get_client()
+    removed_resume = False
+    prof = client.table("profiles").select("raw_resume_path").eq("user_id", user_id).execute().data
+    if prof and prof[0].get("raw_resume_path"):
+        try:
+            client.storage.from_("resumes").remove([prof[0]["raw_resume_path"]])
+            removed_resume = True
+        except Exception as exc:
+            print(f"[delete_user_data] storage remove failed: {exc}")
+    client.table("users").delete().eq("id", user_id).execute()
+    return {"user_id": user_id, "deleted": True, "raw_resume_removed": removed_resume}
+
 
 def get_sent_keys(user_id: str) -> set[str]:
     res = (

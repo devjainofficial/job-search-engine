@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.canonical import canonical_key
 from app.models import APPLY_DIRECT, CanonicalJob
-from app.sources._http import get_json
+from app.sources._http import fetch_many, get_json
 from app.sources.ats_companies import ASHBY
 
 SOURCE_NAME = "ashby"
@@ -19,17 +19,17 @@ class AshbySource:
     name = SOURCE_NAME
 
     def fetch_all(self) -> list[CanonicalJob]:
-        jobs: list[CanonicalJob] = []
-        for slug, display in ASHBY:
-            try:
-                data = get_json(_BOARD_URL.format(slug=slug))
-            except Exception as exc:
-                print(f"[ashby] board '{slug}' failed: {exc}")
-                continue
-            for j in data.get("jobs", []):
-                if j.get("isListed", True):
-                    jobs.append(self._to_canonical(j, display))
-        return jobs
+        return fetch_many(ASHBY, self._fetch_board)
+
+    def _fetch_board(self, company: tuple[str, str]) -> list[CanonicalJob]:
+        slug, display = company
+        try:
+            data = get_json(_BOARD_URL.format(slug=slug))
+        except Exception as exc:
+            print(f"[ashby] board '{slug}' failed: {exc}")
+            return []
+        return [self._to_canonical(j, display)
+                for j in data.get("jobs", []) if j.get("isListed", True)]
 
     def _to_canonical(self, j: dict, company: str) -> CanonicalJob:
         title = j.get("title") or ""

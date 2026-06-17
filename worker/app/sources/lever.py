@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 
 from app.canonical import canonical_key
 from app.models import APPLY_DIRECT, CanonicalJob
-from app.sources._http import get_json
+from app.sources._http import fetch_many, get_json
 from app.sources.ats_companies import LEVER
 
 SOURCE_NAME = "lever"
@@ -18,16 +18,16 @@ class LeverSource:
     name = SOURCE_NAME
 
     def fetch_all(self) -> list[CanonicalJob]:
-        jobs: list[CanonicalJob] = []
-        for slug, display in LEVER:
-            try:
-                data = get_json(_BOARD_URL.format(slug=slug))
-            except Exception as exc:
-                print(f"[lever] board '{slug}' failed: {exc}")
-                continue
-            for j in data:
-                jobs.append(self._to_canonical(j, display))
-        return jobs
+        return fetch_many(LEVER, self._fetch_board)
+
+    def _fetch_board(self, company: tuple[str, str]) -> list[CanonicalJob]:
+        slug, display = company
+        try:
+            data = get_json(_BOARD_URL.format(slug=slug))
+        except Exception as exc:
+            print(f"[lever] board '{slug}' failed: {exc}")
+            return []
+        return [self._to_canonical(j, display) for j in data]
 
     def _to_canonical(self, j: dict, company: str) -> CanonicalJob:
         title = j.get("text") or ""

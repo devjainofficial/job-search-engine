@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     # same role across many locations cannot dominate the digest.
     max_per_company: int = Field(2, alias="MAX_PER_COMPANY")
 
+    # Delete job_cache rows older than this many days at the end of each run.
+    cache_ttl_days: int = Field(14, alias="CACHE_TTL_DAYS")
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILES,
         env_file_encoding="utf-8",

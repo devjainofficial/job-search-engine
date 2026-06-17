@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.canonical import canonical_key
 from app.models import APPLY_DIRECT, CanonicalJob
-from app.sources._http import get_json
+from app.sources._http import fetch_many, get_json
 from app.sources.ats_companies import GREENHOUSE
 
 SOURCE_NAME = "greenhouse"
@@ -19,16 +19,15 @@ class GreenhouseSource:
     name = SOURCE_NAME
 
     def fetch_all(self) -> list[CanonicalJob]:
-        jobs: list[CanonicalJob] = []
-        for token in GREENHOUSE:
-            try:
-                data = get_json(_BOARD_URL.format(token=token))
-            except Exception as exc:  # one dead board must not kill the rest
-                print(f"[greenhouse] board '{token}' failed: {exc}")
-                continue
-            for j in data.get("jobs", []):
-                jobs.append(self._to_canonical(j, token))
-        return jobs
+        return fetch_many(GREENHOUSE, self._fetch_board)
+
+    def _fetch_board(self, token: str) -> list[CanonicalJob]:
+        try:
+            data = get_json(_BOARD_URL.format(token=token))
+        except Exception as exc:  # one dead board must not kill the rest
+            print(f"[greenhouse] board '{token}' failed: {exc}")
+            return []
+        return [self._to_canonical(j, token) for j in data.get("jobs", [])]
 
     def _to_canonical(self, j: dict, token: str) -> CanonicalJob:
         company = j.get("company_name") or token.title()

@@ -10,11 +10,13 @@ from app.config import get_settings
 from app.db import (
     get_active_users_with_profiles,
     get_sent_keys,
+    prune_old_jobs,
     record_sent,
     upsert_jobs,
 )
 from app.matching import match_jobs
 from app.models import CanonicalJob, Profile
+from app.sources._http import fetch_many
 from app.sources.adzuna import AdzunaSource
 from app.sources.arbeitnow import ArbeitnowSource
 from app.sources.ashby import AshbySource
@@ -53,15 +55,17 @@ def _query_for_user(user: dict, profile: Profile) -> str:
     return profile.role_titles[0] if profile.role_titles else ""
 
 
+def _fetch_one_bulk(source) -> list[CanonicalJob]:
+    try:
+        return source.fetch_all()
+    except Exception as exc:
+        print(f"[run_daily] bulk source {source.name} failed: {exc}")
+        return []
+
+
 def _fetch_bulk() -> list[CanonicalJob]:
-    """Fetch every bulk source once. One failing source must not kill the run."""
-    pool: list[CanonicalJob] = []
-    for source in BULK_SOURCES:
-        try:
-            pool.extend(source.fetch_all())
-        except Exception as exc:
-            print(f"[run_daily] bulk source {source.name} failed: {exc}")
-    return pool
+    """Fetch every bulk source once, concurrently. A failing source yields []."""
+    return fetch_many(BULK_SOURCES, _fetch_one_bulk, max_workers=len(BULK_SOURCES))
 
 
 def _fetch_query(query: str) -> list[CanonicalJob]:
@@ -127,10 +131,14 @@ def run_daily() -> dict:
         users_notified += 1
         jobs_sent += len(matches)
 
+    # Keep job_cache bounded; safe because sent_jobs holds its own keys.
+    pruned = prune_old_jobs(settings.cache_ttl_days)
+
     return {
         "distinct_queries": len(distinct_queries),
         "bulk_jobs": len(bulk_pool),
         "jobs_cached": len(all_jobs),
         "users_notified": users_notified,
         "jobs_sent": jobs_sent,
+        "cache_pruned": pruned,
     }
