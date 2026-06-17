@@ -4,11 +4,15 @@ Deliberately simple and deterministic for slice 1. Semantic matching (pgvector)
 is deferred. Runs against already-cached jobs so it never hits an external API.
 """
 
-from app.canonical import _slug
+from app.canonical import _slug, normalize_company
 from app.models import CanonicalJob, MatchedJob, Profile
 
 # A job must clear this score to be considered a match.
 MIN_SCORE = 1.0
+
+# Default cap on how many jobs one company may contribute to a single digest, so
+# a company posting the same role across many locations cannot flood it.
+DEFAULT_MAX_PER_COMPANY = 2
 
 
 def _tokens(*texts: str | None) -> set[str]:
@@ -39,9 +43,26 @@ def score_job(job: CanonicalJob, profile: Profile) -> float:
     return score
 
 
-def match_jobs(jobs: list[CanonicalJob], profile: Profile, limit: int) -> list[MatchedJob]:
-    """Rank jobs for a profile and return the top `limit` above MIN_SCORE."""
+def match_jobs(
+    jobs: list[CanonicalJob],
+    profile: Profile,
+    limit: int,
+    max_per_company: int = DEFAULT_MAX_PER_COMPANY,
+) -> list[MatchedJob]:
+    """Rank jobs for a profile and return the top `limit` above MIN_SCORE,
+    allowing at most `max_per_company` jobs from any single company."""
     scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in jobs]
     scored = [m for m in scored if m.score >= MIN_SCORE]
     scored.sort(key=lambda m: m.score, reverse=True)
-    return scored[:limit]
+
+    selected: list[MatchedJob] = []
+    per_company: dict[str, int] = {}
+    for m in scored:
+        company = normalize_company(m.job.company)
+        if per_company.get(company, 0) >= max_per_company:
+            continue
+        selected.append(m)
+        per_company[company] = per_company.get(company, 0) + 1
+        if len(selected) >= limit:
+            break
+    return selected

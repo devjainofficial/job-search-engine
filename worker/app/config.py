@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 
+    # Cap jobs from any one company per digest so a single employer posting the
+    # same role across many locations cannot dominate the digest.
+    max_per_company: int = Field(2, alias="MAX_PER_COMPANY")
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILES,
         env_file_encoding="utf-8",

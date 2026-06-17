@@ -83,7 +83,12 @@ def run_daily() -> dict:
 
         sent_keys = get_sent_keys(user_id)
         fresh = [j for j in candidates if j.canonical_key not in sent_keys]
-        matches = match_jobs(fresh, profile, settings.max_jobs_per_digest)
+        matches = match_jobs(
+            fresh,
+            profile,
+            settings.max_jobs_per_digest,
+            max_per_company=settings.max_per_company,
+        )
         if not matches:
             continue
 
