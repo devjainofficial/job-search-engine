@@ -9,25 +9,30 @@ export default function Manage({ params }: { params: Promise<{ userId: string }>
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [scope, setScope] = useState("mix");
-  const [savedScope, setSavedScope] = useState(false);
+  const [remote, setRemote] = useState("include_remote");
+  const [savedPref, setSavedPref] = useState(false);
 
   useEffect(() => {
     fetch(`/api/prefs?userId=${userId}`)
       .then((r) => r.json())
-      .then((d) => d.location_scope && setScope(d.location_scope))
+      .then((d) => {
+        if (d.location_scope) setScope(d.location_scope);
+        if (d.remote_mode) setRemote(d.remote_mode);
+      })
       .catch(() => {});
   }, [userId]);
 
-  async function saveScope(next: string) {
-    setScope(next);
-    setSavedScope(false);
+  async function savePref(patch: { location_scope?: string; remote_mode?: string }) {
+    if (patch.location_scope) setScope(patch.location_scope);
+    if (patch.remote_mode) setRemote(patch.remote_mode);
+    setSavedPref(false);
     try {
       const res = await fetch("/api/prefs", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ userId, location_scope: next }),
+        body: JSON.stringify({ userId, ...patch }),
       });
-      if (res.ok) setSavedScope(true);
+      if (res.ok) setSavedPref(true);
     } catch {}
   }
 
@@ -58,12 +63,19 @@ export default function Manage({ params }: { params: Promise<{ userId: string }>
       {!done && (
         <div className="card" style={{ marginBottom: 18 }}>
           <label htmlFor="scope">Job location preference</label>
-          <select id="scope" value={scope} onChange={(e) => saveScope(e.target.value)}>
+          <select id="scope" value={scope} onChange={(e) => savePref({ location_scope: e.target.value })}>
             <option value="mix">Both, balanced (50/50)</option>
             <option value="in_country">Within my country (incl. remote)</option>
             <option value="outside_only">Outside my country (international)</option>
           </select>
-          {savedScope && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
+
+          <label htmlFor="remote">Remote work</label>
+          <select id="remote" value={remote} onChange={(e) => savePref({ remote_mode: e.target.value })}>
+            <option value="include_remote">Include remote and onsite</option>
+            <option value="only_remote">Only remote</option>
+            <option value="no_remote">No remote (onsite only)</option>
+          </select>
+          {savedPref && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
         </div>
       )}
 

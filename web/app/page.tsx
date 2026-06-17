@@ -53,6 +53,13 @@ export default function Home() {
           </select>
           <p className="hint">Based on the location in your resume. You can change this later.</p>
 
+          <label htmlFor="remote_mode">Remote work?</label>
+          <select id="remote_mode" name="remote_mode" defaultValue="include_remote">
+            <option value="include_remote">Include remote and onsite</option>
+            <option value="only_remote">Only remote</option>
+            <option value="no_remote">No remote (onsite only)</option>
+          </select>
+
           <div className="consent">
             <input id="consent" name="consent" type="checkbox" value="yes" required />
             <span>

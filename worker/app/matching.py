@@ -9,7 +9,7 @@ title is unrelated cannot sneak in just because its description mentions a skill
 """
 
 from app.canonical import _slug, normalize_company
-from app.geo import OUT_COUNTRY, classify_location, location_boost
+from app.geo import OUT_COUNTRY, classify_location, is_remote, location_boost
 from app.models import CanonicalJob, MatchedJob, Profile
 from app.seniority import seniority_ok
 
@@ -24,6 +24,12 @@ SCOPE_IN = "in_country"
 SCOPE_OUT = "outside_only"
 SCOPE_MIX = "mix"
 SCOPE_ANY = "any"
+
+# Remote preference, orthogonal to location scope. "only_remote" keeps remote
+# roles, "no_remote" keeps onsite roles, "include_remote" applies no filter.
+REMOTE_ONLY = "only_remote"
+REMOTE_NO = "no_remote"
+REMOTE_INCLUDE = "include_remote"
 
 # Tokens too generic to signal role fit on their own. A bare overlap on these
 # (e.g. "developer", or "ai" matching "AI Cinematic Video Editor") must not
@@ -141,15 +147,23 @@ def match_jobs(
     limit: int,
     max_per_company: int = DEFAULT_MAX_PER_COMPANY,
     location_scope: str = SCOPE_ANY,
+    remote_mode: str = REMOTE_INCLUDE,
 ) -> list[MatchedJob]:
     """Return up to `limit` title-relevant jobs, ranked, with at most
     `max_per_company` from any single company. Roles below the candidate's
-    seniority are dropped, and results are filtered/balanced by location_scope:
-    in_country (country + remote), outside_only (foreign), mix (~50/50), or any."""
+    seniority are dropped. Results are filtered/balanced by location_scope
+    (in_country / outside_only / mix / any) and by remote_mode (only_remote /
+    no_remote / include_remote), which are independent axes."""
     relevant = [
         j for j in jobs
         if qualifies(j, profile) and seniority_ok(j.title, profile.years_experience)
     ]
+
+    if remote_mode == REMOTE_ONLY:
+        relevant = [j for j in relevant if is_remote(j.location)]
+    elif remote_mode == REMOTE_NO:
+        relevant = [j for j in relevant if not is_remote(j.location)]
+
     scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in relevant]
     scored.sort(key=lambda m: m.score, reverse=True)
 

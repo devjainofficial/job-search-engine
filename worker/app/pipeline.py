@@ -14,7 +14,7 @@ from app.db import (
     record_sent,
     upsert_jobs,
 )
-from app.matching import SCOPE_MIX, match_jobs
+from app.matching import REMOTE_INCLUDE, SCOPE_MIX, match_jobs
 from app.models import CanonicalJob, Profile
 from app.sources._http import fetch_many
 from app.sources.adzuna import AdzunaSource
@@ -110,9 +110,10 @@ def run_daily() -> dict:
         profile = _profile_of(u)
         candidates = bulk_pool + jobs_by_query.get(query, [])
 
-        # Location preference lives in channel_prefs; default to a balanced mix.
+        # Location + remote preferences live in channel_prefs.
         prefs = u.get("channel_prefs") or {}
         scope = prefs.get("location_scope", SCOPE_MIX)
+        remote_mode = prefs.get("remote_mode", REMOTE_INCLUDE)
 
         sent_keys = get_sent_keys(user_id)
         fresh = [j for j in candidates if j.canonical_key not in sent_keys]
@@ -122,6 +123,7 @@ def run_daily() -> dict:
             settings.max_jobs_per_digest,
             max_per_company=settings.max_per_company,
             location_scope=scope,
+            remote_mode=remote_mode,
         )
         if not matches:
             continue

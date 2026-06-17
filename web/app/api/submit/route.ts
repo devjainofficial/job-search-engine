@@ -25,6 +25,9 @@ export async function POST(req: NextRequest) {
   const SCOPES = ["mix", "in_country", "outside_only"];
   const rawScope = String(form.get("location_scope") ?? "mix");
   const locationScope = SCOPES.includes(rawScope) ? rawScope : "mix";
+  const REMOTE_MODES = ["include_remote", "only_remote", "no_remote"];
+  const rawRemote = String(form.get("remote_mode") ?? "include_remote");
+  const remoteMode = REMOTE_MODES.includes(rawRemote) ? rawRemote : "include_remote";
 
   // Validation
   if (!email || !email.includes("@")) {
@@ -52,7 +55,7 @@ export async function POST(req: NextRequest) {
     .insert({
       email,
       consent_at: new Date().toISOString(), // explicit consent (DPDP)
-      channel_prefs: { telegram: true, location_scope: locationScope },
+      channel_prefs: { telegram: true, location_scope: locationScope, remote_mode: remoteMode },
     })
     .select("id")
     .single();
