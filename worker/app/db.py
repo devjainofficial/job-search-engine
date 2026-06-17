@@ -39,6 +39,53 @@ def upsert_profile(user_id: str, profile: Profile, raw_resume_path: str | None) 
 _RESUME_BUCKET = "resumes"
 
 
+def set_telegram_chat_id(user_id: str, chat_id: str) -> str | None:
+    """Store the chat_id for a user (called after a verified connect token).
+    Returns the user_id if the row exists, else None."""
+    res = (
+        get_client()
+        .table("users")
+        .update({"telegram_chat_id": chat_id})
+        .eq("id", user_id)
+        .execute()
+    )
+    return res.data[0]["id"] if res.data else None
+
+
+def get_sent_jobs_detail(user_id: str, limit: int = 50) -> list[dict]:
+    """Recent jobs sent to a user, joined with their cached details, newest first.
+    Powers the dashboard. Cache pruning may drop older rows; those are skipped."""
+    client = get_client()
+    sent = (
+        client.table("sent_jobs")
+        .select("canonical_key, sent_at")
+        .eq("user_id", user_id)
+        .order("sent_at", desc=True)
+        .limit(limit)
+        .execute()
+    )
+    rows = sent.data or []
+    if not rows:
+        return []
+    keys = [r["canonical_key"] for r in rows]
+    cache: dict[str, dict] = {}
+    for i in range(0, len(keys), 50):
+        chunk = (
+            client.table("job_cache")
+            .select("canonical_key, title, company, location, apply_url, apply_url_type, source")
+            .in_("canonical_key", keys[i : i + 50])
+            .execute()
+        )
+        for c in chunk.data or []:
+            cache[c["canonical_key"]] = c
+    out = []
+    for r in rows:
+        job = cache.get(r["canonical_key"])
+        if job:
+            out.append({**job, "sent_at": r["sent_at"]})
+    return out
+
+
 def get_raw_resume_path(user_id: str) -> str | None:
     res = get_client().table("profiles").select("raw_resume_path").eq("user_id", user_id).execute()
     return res.data[0]["raw_resume_path"] if res.data else None

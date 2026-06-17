@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { telegramConnectUrl } from "@/lib/connectToken";
 import { RESUME_BUCKET, supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export const runtime = "nodejs";
@@ -19,7 +20,6 @@ export async function POST(req: NextRequest) {
   }
 
   const email = String(form.get("email") ?? "").trim();
-  const chatId = String(form.get("telegram_chat_id") ?? "").trim();
   const consent = form.get("consent");
   const file = form.get("resume");
 
@@ -48,8 +48,7 @@ export async function POST(req: NextRequest) {
     .from("users")
     .insert({
       email,
-      telegram_chat_id: chatId || null,
-      consent_at: new Date().toISOString(),
+      consent_at: new Date().toISOString(), // explicit consent (DPDP)
     })
     .select("id")
     .single();
@@ -79,18 +78,19 @@ export async function POST(req: NextRequest) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ user_id: userId }),
     });
+    const connectUrl = telegramConnectUrl(userId);
     if (!res.ok) {
       const detail = await res.text();
       return NextResponse.json(
-        { userId, parsed: false, warning: "Saved, but parsing failed: " + detail },
+        { userId, connectUrl, parsed: false, warning: "Saved, but parsing failed: " + detail },
         { status: 202 },
       );
     }
     const parsed = await res.json();
-    return NextResponse.json({ userId, parsed: true, profile: parsed });
+    return NextResponse.json({ userId, connectUrl, parsed: true, profile: parsed });
   } catch (e) {
     return NextResponse.json(
-      { userId, parsed: false, warning: "Saved, but the parser is unreachable. It will be retried." },
+      { userId, connectUrl: telegramConnectUrl(userId), parsed: false, warning: "Saved, but the parser is unreachable. It will be retried." },
       { status: 202 },
     );
   }

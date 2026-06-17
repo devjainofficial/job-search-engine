@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = Field("", alias="GEMINI_API_KEY")
 
     telegram_bot_token: str = Field("", alias="TELEGRAM_BOT_TOKEN")
+    # Optional shared secret Telegram echoes back on each webhook call.
+    telegram_webhook_secret: str = Field("", alias="TELEGRAM_WEBHOOK_SECRET")
 
     # Adzuna (India + global). Optional: the adapter is disabled unless both are set.
     adzuna_app_id: str = Field("", alias="ADZUNA_APP_ID")

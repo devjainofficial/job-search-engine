@@ -10,18 +10,21 @@ NOTE: these endpoints are unauthenticated and meant for trusted/internal callers
 exposing them to the public internet.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
+from app.config import get_settings
 from app.db import (
     delete_user_data,
     download_resume,
     get_raw_resume_path,
+    get_sent_jobs_detail,
     upsert_profile,
 )
 from app.parsing.resume_parser import parse_resume_text
 from app.parsing.text_extract import extract_text_from_bytes
 from app.pipeline import run_daily
+from app.telegram_bot import handle_update
 
 app = FastAPI(title="job-search-app worker")
 
@@ -58,6 +61,25 @@ def parse_resume_endpoint(body: ParseRequest) -> dict:
         "skills": profile.skills,
         "location": profile.location,
     }
+
+
+@app.get("/users/{user_id}/jobs")
+def user_jobs_endpoint(user_id: str) -> dict:
+    """Recent jobs sent to a user (powers the web dashboard)."""
+    return {"user_id": user_id, "jobs": get_sent_jobs_detail(user_id)}
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(request: Request) -> dict:
+    """Receive Telegram updates for one-tap connect. Verifies the optional shared
+    secret Telegram echoes in a header before processing."""
+    settings = get_settings()
+    if settings.telegram_webhook_secret:
+        header = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if header != settings.telegram_webhook_secret:
+            raise HTTPException(status_code=403, detail="bad webhook secret")
+    update = await request.json()
+    return handle_update(update)
 
 
 @app.delete("/users/{user_id}")
