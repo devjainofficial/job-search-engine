@@ -1,6 +1,6 @@
 # Fly.io config for the worker. Change `app` to your own unique name, or run
 # `fly launch` once (it will reuse this file). Region bom = Mumbai, India.
-app = "job-search-worker-CHANGEME"
+app = "jobsearch-worker-djain"
 primary_region = "bom"
 
 [build]

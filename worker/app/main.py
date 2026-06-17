@@ -10,6 +10,9 @@ NOTE: these endpoints are unauthenticated and meant for trusted/internal callers
 exposing them to the public internet.
 """
 
+import os
+
+import httpx
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
@@ -33,9 +36,49 @@ class ParseRequest(BaseModel):
     user_id: str
 
 
+def _public_base_url() -> str | None:
+    # Render provides RENDER_EXTERNAL_URL; allow an explicit override too.
+    return os.environ.get("PUBLIC_BASE_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+
+
+def _set_telegram_webhook(base_url: str) -> dict:
+    settings = get_settings()
+    if not settings.telegram_bot_token:
+        return {"ok": False, "reason": "no bot token"}
+    payload = {"url": f"{base_url.rstrip('/')}/telegram/webhook"}
+    if settings.telegram_webhook_secret:
+        payload["secret_token"] = settings.telegram_webhook_secret
+    resp = httpx.post(
+        f"https://api.telegram.org/bot{settings.telegram_bot_token}/setWebhook",
+        json=payload, timeout=15,
+    )
+    return resp.json()
+
+
+@app.on_event("startup")
+def _register_webhook_on_startup() -> None:
+    """Self-register the Telegram webhook from the cloud (where Telegram is
+    reachable), so connect works without registering from a blocked network."""
+    base = _public_base_url()
+    if base:
+        try:
+            print("[startup] setWebhook ->", _set_telegram_webhook(base))
+        except Exception as exc:
+            print(f"[startup] setWebhook failed: {exc}")
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.post("/telegram/register-webhook")
+def register_webhook_endpoint() -> dict:
+    """Manually (re)register the webhook using the platform's public URL."""
+    base = _public_base_url()
+    if not base:
+        raise HTTPException(status_code=400, detail="no public base url (set PUBLIC_BASE_URL)")
+    return _set_telegram_webhook(base)
 
 
 @app.post("/run-daily")
