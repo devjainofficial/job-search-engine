@@ -36,6 +36,18 @@ def upsert_profile(user_id: str, profile: Profile, raw_resume_path: str | None) 
     ).execute()
 
 
+_RESUME_BUCKET = "resumes"
+
+
+def get_raw_resume_path(user_id: str) -> str | None:
+    res = get_client().table("profiles").select("raw_resume_path").eq("user_id", user_id).execute()
+    return res.data[0]["raw_resume_path"] if res.data else None
+
+
+def download_resume(path: str) -> bytes:
+    return get_client().storage.from_(_RESUME_BUCKET).download(path)
+
+
 def get_active_users_with_profiles() -> list[dict]:
     """Users who can receive a digest: have a telegram_chat_id and a parsed profile."""
     users = (
