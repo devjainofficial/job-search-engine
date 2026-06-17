@@ -1,9 +1,9 @@
 """Daily run orchestration: batch-by-shared-query, match, dedup, notify.
 
-The critical rule here is to NOT loop per user per source. We collect the set of
-distinct queries across all users, fetch each query once, cache it, then match the
-cached jobs to each user in memory. 500 users sharing a few role clusters cost a
-few API calls, not thousands.
+The critical rule is to NOT loop per user per source. Query sources are fetched
+once per distinct user query; bulk sources (firehoses and ATS boards) are fetched
+once total. Everything is cached, then matched to each user in memory. 500 users
+sharing a few role clusters cost a handful of fetches, not thousands.
 """
 
 from app.config import get_settings
@@ -15,10 +15,20 @@ from app.db import (
 )
 from app.matching import match_jobs
 from app.models import CanonicalJob, Profile
+from app.sources.adzuna import AdzunaSource
+from app.sources.arbeitnow import ArbeitnowSource
+from app.sources.ashby import AshbySource
+from app.sources.greenhouse import GreenhouseSource
+from app.sources.lever import LeverSource
+from app.sources.remoteok import RemoteOKSource
 from app.sources.remotive import RemotiveSource
 
-# Active sources for slice 1. Add adapters here as they are built.
-SOURCES = [RemotiveSource()]
+# Query sources support server-side keyword search (fetched per distinct query).
+QUERY_SOURCES = [RemotiveSource(), AdzunaSource()]
+
+# Bulk sources return a firehose or whole company boards (fetched once per run).
+BULK_SOURCES = [RemoteOKSource(), ArbeitnowSource(),
+                GreenhouseSource(), LeverSource(), AshbySource()]
 
 
 def _profile_of(user: dict) -> Profile:
@@ -43,34 +53,49 @@ def _query_for_user(user: dict, profile: Profile) -> str:
     return profile.role_titles[0] if profile.role_titles else ""
 
 
+def _fetch_bulk() -> list[CanonicalJob]:
+    """Fetch every bulk source once. One failing source must not kill the run."""
+    pool: list[CanonicalJob] = []
+    for source in BULK_SOURCES:
+        try:
+            pool.extend(source.fetch_all())
+        except Exception as exc:
+            print(f"[run_daily] bulk source {source.name} failed: {exc}")
+    return pool
+
+
+def _fetch_query(query: str) -> list[CanonicalJob]:
+    collected: list[CanonicalJob] = []
+    for source in QUERY_SOURCES:
+        try:
+            collected.extend(source.fetch(query))
+        except Exception as exc:
+            print(f"[run_daily] query source {source.name} failed for '{query}': {exc}")
+    return collected
+
+
 def run_daily() -> dict:
     settings = get_settings()
     users = get_active_users_with_profiles()
 
-    # 1. Build the set of distinct queries across all users.
+    # 1. Distinct queries across all users.
     user_queries: dict[str, str] = {}
     for u in users:
-        profile = _profile_of(u)
-        query = _query_for_user(u, profile)
+        query = _query_for_user(u, _profile_of(u))
         if query:
             user_queries[u["id"]] = query
     distinct_queries = sorted(set(user_queries.values()))
 
-    # 2. Fetch each distinct query once, cache results (in memory + job_cache).
-    jobs_by_query: dict[str, list[CanonicalJob]] = {}
-    jobs_cached = 0
-    for query in distinct_queries:
-        collected: list[CanonicalJob] = []
-        for source in SOURCES:
-            try:
-                collected.extend(source.fetch(query))
-            except Exception as exc:  # one bad source must not kill the run
-                print(f"[run_daily] source {source.name} failed for '{query}': {exc}")
-        jobs_by_query[query] = collected
-        upsert_jobs(collected)
-        jobs_cached += len(collected)
+    # 2. Fetch bulk sources once, query sources once per distinct query. Cache all.
+    bulk_pool = _fetch_bulk()
+    jobs_by_query: dict[str, list[CanonicalJob]] = {q: _fetch_query(q) for q in distinct_queries}
 
-    # 3. Match cached jobs to each user in memory, dedup, send.
+    all_jobs = list(bulk_pool)
+    for jobs in jobs_by_query.values():
+        all_jobs.extend(jobs)
+    upsert_jobs(all_jobs)
+
+    # 3. Match the combined pool to each user in memory, dedup, send.
     users_notified = 0
     jobs_sent = 0
     for u in users:
@@ -79,7 +104,7 @@ def run_daily() -> dict:
         if not query:
             continue
         profile = _profile_of(u)
-        candidates = jobs_by_query.get(query, [])
+        candidates = bulk_pool + jobs_by_query.get(query, [])
 
         sent_keys = get_sent_keys(user_id)
         fresh = [j for j in candidates if j.canonical_key not in sent_keys]
@@ -104,7 +129,8 @@ def run_daily() -> dict:
 
     return {
         "distinct_queries": len(distinct_queries),
-        "jobs_cached": jobs_cached,
+        "bulk_jobs": len(bulk_pool),
+        "jobs_cached": len(all_jobs),
         "users_notified": users_notified,
         "jobs_sent": jobs_sent,
     }

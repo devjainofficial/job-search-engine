@@ -57,10 +57,19 @@ def get_active_users_with_profiles() -> list[dict]:
 
 # --- job_cache --------------------------------------------------------------
 
+_UPSERT_CHUNK = 500
+
+
 def upsert_jobs(jobs: list[CanonicalJob]) -> None:
-    """Cache fetched jobs by canonical_key so one query serves many users."""
+    """Cache fetched jobs by canonical_key so one fetch serves many users.
+
+    Deduplicate by canonical_key within the batch (board sources can return the
+    same job twice) and chunk the upsert so large board pulls stay under request
+    size limits.
+    """
     if not jobs:
         return
+    by_key: dict[str, CanonicalJob] = {j.canonical_key: j for j in jobs}
     payload = [
         {
             "canonical_key": j.canonical_key,
@@ -74,9 +83,11 @@ def upsert_jobs(jobs: list[CanonicalJob]) -> None:
             "raw_payload": j.raw_payload,
             "fetched_at": "now()",
         }
-        for j in jobs
+        for j in by_key.values()
     ]
-    get_client().table("job_cache").upsert(payload).execute()
+    client = get_client()
+    for i in range(0, len(payload), _UPSERT_CHUNK):
+        client.table("job_cache").upsert(payload[i : i + _UPSERT_CHUNK]).execute()
 
 
 # --- sent_jobs (dedup ledger) ----------------------------------------------

@@ -28,8 +28,10 @@ def _escape(text: str) -> str:
 
 def format_digest(matches: list[MatchedJob]) -> str:
     lines = [f"<b>{len(matches)} new job(s) for you today</b>", ""]
+    sources: set[str] = set()
     for m in matches:
         job = m.job
+        sources.add(job.source)
         label = _APPLY_LABELS.get(job.apply_url_type, "Open")
         title = _escape(job.title)
         company = _escape(job.company)
@@ -38,8 +40,8 @@ def format_digest(matches: list[MatchedJob]) -> str:
         lines.append(f"<b>{title}</b> @ {company}{loc_part}")
         lines.append(f'<a href="{job.apply_url}">{label}</a>')
         lines.append("")
-    # Attribution required by Remotive ToS while it is the source.
-    lines.append("<i>Jobs via Remotive</i>")
+    # Attribution: Remotive and RemoteOK both require crediting the source.
+    lines.append(f"<i>Jobs via {', '.join(sorted(s.title() for s in sources))}</i>")
     return "\n".join(lines)
 
 

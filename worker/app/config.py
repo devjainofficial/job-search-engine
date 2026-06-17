@@ -24,6 +24,10 @@ class Settings(BaseSettings):
 
     telegram_bot_token: str = Field("", alias="TELEGRAM_BOT_TOKEN")
 
+    # Adzuna (India + global). Optional: the adapter is disabled unless both are set.
+    adzuna_app_id: str = Field("", alias="ADZUNA_APP_ID")
+    adzuna_app_key: str = Field("", alias="ADZUNA_APP_KEY")
+
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 
