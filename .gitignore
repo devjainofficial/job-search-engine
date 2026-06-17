@@ -13,6 +13,10 @@ venv/
 .env
 .env.local
 *.key
+# Personal data (DPDP): never commit raw resumes
+*.pdf
+*.docx
+*.doc
 # OS / editor
 .DS_Store
 .idea/
