@@ -1,0 +1,26 @@
+# Render Blueprint (alternative to Fly). New + Blueprint -> pick this repo.
+# Free plan sleeps after ~15 min idle (slow cold start); fine to start.
+services:
+  - type: web
+    name: job-search-worker
+    runtime: docker
+    rootDir: worker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore   # closest Render region to India
+    healthCheckPath: /health
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+      - key: TELEGRAM_WEBHOOK_SECRET
+        sync: false

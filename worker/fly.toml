@@ -1,0 +1,19 @@
+# Fly.io config for the worker. Change `app` to your own unique name, or run
+# `fly launch` once (it will reuse this file). Region bom = Mumbai, India.
+app = "job-search-worker-CHANGEME"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  # Scale to zero when idle (near-free), fast (~1-3s) cold start on next request.
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"   # litellm + pdfplumber need a bit of headroom
