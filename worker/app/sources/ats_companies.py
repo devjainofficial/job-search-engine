@@ -11,6 +11,8 @@ GREENHOUSE = [
     "stripe", "airbnb", "gitlab", "dropbox", "coinbase", "databricks", "figma",
     "discord", "instacart", "asana", "brex", "robinhood", "cloudflare",
     "datadog", "reddit", "postman",
+    # India-based employers (direct apply links)
+    "groww", "phonepe", "druva", "slice",
 ]
 
 # api.lever.co/v0/postings/{slug}?mode=json
@@ -18,6 +20,11 @@ LEVER = [
     ("spotify", "Spotify"),
     ("mistral", "Mistral AI"),
     ("palantir", "Palantir"),
+    # India-based employers
+    ("cred", "CRED"),
+    ("meesho", "Meesho"),
+    ("porter", "Porter"),
+    ("mindtickle", "MindTickle"),
 ]
 
 # api.ashbyhq.com/posting-api/job-board/{slug}
@@ -31,4 +38,6 @@ ASHBY = [
     ("posthog", "PostHog"),
     ("runway", "Runway"),
     ("browserbase", "Browserbase"),
+    # India-based employer
+    ("navi", "Navi"),
 ]

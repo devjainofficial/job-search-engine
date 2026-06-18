@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     adzuna_app_id: str = Field("", alias="ADZUNA_APP_ID")
     adzuna_app_key: str = Field("", alias="ADZUNA_APP_KEY")
 
+    # JSearch via RapidAPI (Indeed/LinkedIn/Glassdoor coverage). Optional, off
+    # unless set. Free ~500 req/mo then PAID (see docs/RESEARCH.md).
+    rapidapi_key: str = Field("", alias="RAPIDAPI_KEY")
+
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 

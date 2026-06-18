@@ -16,12 +16,15 @@ _HEADERS = {
 }
 
 
-def get_json(url: str, params: dict | None = None, timeout: float = 20.0, retries: int = 2):
-    """GET and parse JSON, backing off on 429 and transient network errors."""
+def get_json(url: str, params: dict | None = None, timeout: float = 20.0, retries: int = 2,
+             headers: dict | None = None):
+    """GET and parse JSON, backing off on 429 and transient network errors.
+    Extra headers (e.g. API keys) are merged over the defaults."""
+    merged = {**_HEADERS, **(headers or {})}
     last_exc: Exception | None = None
     for attempt in range(retries + 1):
         try:
-            with httpx.Client(timeout=timeout, headers=_HEADERS, follow_redirects=True) as client:
+            with httpx.Client(timeout=timeout, headers=merged, follow_redirects=True) as client:
                 resp = client.get(url, params=params)
             if resp.status_code == 429:
                 time.sleep(1.5 * (attempt + 1))  # respect rate limit, then retry
