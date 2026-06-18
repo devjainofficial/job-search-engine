@@ -61,8 +61,12 @@ export default function AccountPage() {
       options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=/account` },
     });
     setBusy(false);
-    if (error) setError("We couldn't send the link. Please check your email address and try again.");
-    else setStep("sent");
+    if (error) {
+      const rateLimited = (error as { status?: number }).status === 429 || /rate|too many/i.test(error.message);
+      setError(rateLimited
+        ? "Too many email requests right now. Please wait a few minutes, or use “Continue with Google” above."
+        : "We couldn't send the link. Please check your email address and try again.");
+    } else setStep("sent");
   }
 
   async function savePrefs(patch: Prefs) {
