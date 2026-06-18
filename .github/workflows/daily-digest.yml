@@ -1,9 +1,5 @@
-# Daily job digest. Runs the worker on a schedule with no always-on server.
-# Telegram is reachable from GitHub runners (unlike some local networks).
-#
-# Required repo secrets (Settings -> Secrets and variables -> Actions):
-#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY, TELEGRAM_BOT_TOKEN
-#   optional: ADZUNA_APP_ID, ADZUNA_APP_KEY
+# Daily job digest. Pings the deployed worker's /run-daily endpoint, which holds
+# all the keys in its own environment, so this workflow needs NO secrets.
 name: daily-digest
 
 on:
@@ -20,24 +16,7 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-
-      - name: Install dependencies
-        working-directory: worker
-        run: pip install -r requirements.txt
-
-      - name: Run daily digest
-        working-directory: worker
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          ADZUNA_APP_ID: ${{ secrets.ADZUNA_APP_ID }}
-          ADZUNA_APP_KEY: ${{ secrets.ADZUNA_APP_KEY }}
-        run: python scripts/run_daily.py
+      - name: Trigger daily run on the worker
+        # --max-time covers the Render free-tier cold start (~50s) plus the run.
+        run: |
+          curl -fsS -X POST https://job-search-worker-jkrh.onrender.com/run-daily --max-time 280
