@@ -12,9 +12,7 @@ const APPLY_LABEL: Record<string, string> = { direct_apply: "Apply", job_detail:
 
 export default function AccountPage() {
   const supabase = supabaseBrowser();
-  const [step, setStep] = useState<"loading" | "email" | "sent" | "authed">("loading");
-  const [email, setEmail] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<"loading" | "email" | "authed">("loading");
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [acct, setAcct] = useState<Account | null>(null);
@@ -54,21 +52,6 @@ export default function AccountPage() {
     });
   }, [supabase, loadAccount]);
 
-  async function sendLink(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null); setInfo(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=/account` },
-    });
-    setBusy(false);
-    if (error) {
-      const rateLimited = (error as { status?: number }).status === 429 || /rate|too many/i.test(error.message);
-      setError(rateLimited
-        ? "Too many email requests right now. Please wait a few minutes, or use “Continue with Google” above."
-        : "We couldn't send the link. Please check your email address and try again.");
-    } else setStep("sent");
-  }
-
   async function savePrefs(patch: Prefs) {
     setSaved(false);
     const res = await fetch("/api/account", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
@@ -103,7 +86,7 @@ export default function AccountPage() {
     finally { setFinding(false); }
   }
 
-  async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); setEmail(""); }
+  async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); }
 
   async function deleteAccount() {
     if (!confirm("Permanently delete your account, profile, history, and resume file?")) return;
@@ -118,27 +101,12 @@ export default function AccountPage() {
     return (
       <main className="wrap">
         <h1>Sign in</h1>
-        <p className="sub">Use the email you signed up with to manage preferences and see your jobs.</p>
+        <p className="sub">Sign in to manage your preferences and see your matched jobs.</p>
         <div className="card">
           <button type="button" onClick={google} style={{ marginTop: 0, background: "#fff", color: "#1f2937" }}>
             Continue with Google
           </button>
-          <p className="hint" style={{ textAlign: "center" }}>or use email</p>
-          {step === "sent" ? (
-            <div className="msg ok">
-              <strong>Check your email.</strong> We sent a sign-in link to {email}. Click it to sign in
-              (check spam too). You can close this tab.
-              <div style={{ marginTop: 10 }}>
-                <a onClick={() => setStep("email")} style={{ cursor: "pointer" }}>Use a different email</a>
-              </div>
-            </div>
-          ) : (
-            <form onSubmit={sendLink}>
-              <label htmlFor="email">Email</label>
-              <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-              <button type="submit" disabled={busy}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
-            </form>
-          )}
+          <p className="hint" style={{ textAlign: "center", marginBottom: 0 }}>Email sign-in is coming soon.</p>
           {info && <div className="msg ok">{info}</div>}
           {error && <div className="msg err">{error}</div>}
         </div>
