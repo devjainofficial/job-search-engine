@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid form submission" }, { status: 400 });
   }
 
-  const email = String(form.get("email") ?? "").trim();
+  const email = String(form.get("email") ?? "").trim().toLowerCase();
   const consent = form.get("consent");
   const file = form.get("resume");
   const SCOPES = ["mix", "in_country", "outside_only"];
@@ -53,26 +53,38 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = supabaseAdmin();
+  const prefs = {
+    telegram: true,
+    location_scope: locationScope,
+    remote_mode: remoteMode,
+    preferred_locations: preferredLocations,
+  };
 
-  // 1. Create the user with explicit consent (DPDP).
-  const { data: user, error: userErr } = await supabase
+  // 1. One account per email: reuse an existing user (re-upload), else create.
+  const { data: existing } = await supabase
     .from("users")
-    .insert({
-      email,
-      consent_at: new Date().toISOString(), // explicit consent (DPDP)
-      channel_prefs: {
-        telegram: true,
-        location_scope: locationScope,
-        remote_mode: remoteMode,
-        preferred_locations: preferredLocations,
-      },
-    })
     .select("id")
-    .single();
-  if (userErr || !user) {
-    return NextResponse.json({ error: "Could not create account: " + (userErr?.message ?? "") }, { status: 500 });
+    .ilike("email", email)
+    .limit(1)
+    .maybeSingle();
+
+  let userId: string;
+  let created = false;
+  if (existing) {
+    userId = existing.id as string;
+    await supabase.from("users").update({ consent_at: new Date().toISOString(), channel_prefs: prefs }).eq("id", userId);
+  } else {
+    const { data: user, error: userErr } = await supabase
+      .from("users")
+      .insert({ email, consent_at: new Date().toISOString(), channel_prefs: prefs })
+      .select("id")
+      .single();
+    if (userErr || !user) {
+      return NextResponse.json({ error: "Could not create account: " + (userErr?.message ?? "") }, { status: 500 });
+    }
+    userId = user.id as string;
+    created = true;
   }
-  const userId = user.id as string;
 
   // 2. Upload the raw resume to Storage (deletable after parsing per retention policy).
   const path = `${userId}/${sanitize(file.name)}`;
@@ -81,12 +93,12 @@ export async function POST(req: NextRequest) {
     .from(RESUME_BUCKET)
     .upload(path, bytes, { contentType: file.type || "application/octet-stream", upsert: true });
   if (upErr) {
-    await supabase.from("users").delete().eq("id", userId); // roll back
+    if (created) await supabase.from("users").delete().eq("id", userId); // roll back only a fresh account
     return NextResponse.json({ error: "Upload failed: " + upErr.message }, { status: 500 });
   }
 
-  // 3. Create the profile row pointing at the raw file (parsed_at set by the worker).
-  await supabase.from("profiles").insert({ user_id: userId, raw_resume_path: path });
+  // 3. Upsert the profile row pointing at the raw file (parsed_at set by the worker).
+  await supabase.from("profiles").upsert({ user_id: userId, raw_resume_path: path }, { onConflict: "user_id" });
 
   // 4. Ask the worker to parse (parse-once lives in the Python service).
   try {

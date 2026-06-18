@@ -30,7 +30,11 @@ export default function Home() {
 
   return (
     <main className="wrap">
-      <h1>Daily Job Digest</h1>
+      <div className="topnav">
+        <span className="brand">Daily Job Digest</span>
+        <a href="/account">Sign in</a>
+      </div>
+      <h1>Land your next job, on autopilot</h1>
       <p className="sub">
         Upload your resume once. Every day we match jobs across many sources (with direct apply
         links) and send the best ones to your Telegram. Free.
@@ -82,6 +86,15 @@ export default function Home() {
         </form>
         {result && !result.ok && <div className="msg err">{result.error}</div>}
       </div>
+
+      <ol className="how">
+        <li><strong>Upload</strong> your resume — we extract your roles, skills, and location.</li>
+        <li><strong>Connect Telegram</strong> in one tap to receive your digest.</li>
+        <li><strong>Get matched jobs daily</strong> with direct apply links — or hit "Find now" anytime.</li>
+      </ol>
+      <p className="hint" style={{ textAlign: "center" }}>
+        Already started? <a href="/account">Sign in to manage preferences &amp; see your jobs</a>.
+      </p>
     </main>
   );
 }

@@ -26,7 +26,7 @@ from app.db import (
 )
 from app.parsing.resume_parser import parse_resume_text
 from app.parsing.text_extract import extract_text_from_bytes
-from app.pipeline import run_daily
+from app.pipeline import run_daily, run_for_user
 from app.telegram_bot import handle_update
 
 app = FastAPI(title="job-search-app worker")
@@ -110,6 +110,17 @@ def parse_resume_endpoint(body: ParseRequest) -> dict:
 def user_jobs_endpoint(user_id: str) -> dict:
     """Recent jobs sent to a user (powers the web dashboard)."""
     return {"user_id": user_id, "jobs": get_sent_jobs_detail(user_id)}
+
+
+class RunUserRequest(BaseModel):
+    user_id: str
+    limit: int | None = None
+
+
+@app.post("/run-user")
+def run_user_endpoint(body: RunUserRequest) -> dict:
+    """On-demand 'find new jobs now' for one user (deduped against history)."""
+    return run_for_user(body.user_id, limit=body.limit)
 
 
 @app.post("/telegram/webhook")

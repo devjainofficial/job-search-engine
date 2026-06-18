@@ -69,6 +69,25 @@ export default function AccountPage() {
     if (error) setError(error.message);
   }
 
+  const [finding, setFinding] = useState(false);
+  const [findMsg, setFindMsg] = useState<string | null>(null);
+
+  async function findNow() {
+    setFinding(true); setFindMsg(null);
+    try {
+      const res = await fetch("/api/account/run", { method: "POST" });
+      const data = await res.json();
+      if (res.status === 429) setFindMsg(data.error);
+      else if (res.status === 202) { setFindMsg(data.message); setTimeout(loadAccount, 10000); }
+      else if (!res.ok) setFindMsg(data.error ?? "Search failed");
+      else {
+        setFindMsg(data.new_jobs > 0 ? `Found ${data.new_jobs} new job(s)!` : "No new jobs right now — check back later.");
+        await loadAccount();
+      }
+    } catch { setFindMsg("Network error"); }
+    finally { setFinding(false); }
+  }
+
   async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); setEmail(""); setCode(""); }
 
   async function deleteAccount() {
@@ -155,7 +174,14 @@ export default function AccountPage() {
           </div>
 
           <div className="card" style={{ marginBottom: 18 }}>
-            <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Your jobs ({acct?.jobs?.length ?? 0})</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Your jobs ({acct?.jobs?.length ?? 0})</h2>
+              <button onClick={findNow} disabled={finding} style={{ width: "auto", margin: 0, padding: "8px 14px" }}>
+                {finding ? "Searching…" : "Find new jobs now"}
+              </button>
+            </div>
+            {findMsg && <div className="msg ok" style={{ marginTop: 12 }}>{findMsg}</div>}
+            <div style={{ marginTop: 14 }} />
             {(acct?.jobs?.length ?? 0) === 0 ? (
               <p className="hint">No jobs yet. They arrive on the next daily run.</p>
             ) : (

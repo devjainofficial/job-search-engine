@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.db import (
     get_active_users_with_profiles,
     get_sent_keys,
+    get_user_for_run,
     prune_old_jobs,
     record_sent,
     upsert_jobs,
@@ -90,6 +91,48 @@ def _fetch_adzuna_city(query: str, city: str) -> list[CanonicalJob]:
     except Exception as exc:
         print(f"[run_daily] adzuna city fetch failed for '{query}'/'{city}': {exc}")
         return []
+
+
+def run_for_user(user_id: str, limit: int | None = None, send: bool = True) -> dict:
+    """On-demand run for a single user ("Find new jobs now"). Fetches the pools
+    for their query + cities, matches with their prefs, dedups against history,
+    optionally sends to Telegram, and records. Never resends old jobs."""
+    settings = get_settings()
+    u = get_user_for_run(user_id)
+    if not u:
+        return {"error": "user not found"}
+    profile = _profile_of(u)
+    query = _query_for_user(u, profile)
+    if not query:
+        return {"new_jobs": 0, "reason": "no parsed profile yet"}
+
+    prefs = u.get("channel_prefs") or {}
+    scope = prefs.get("location_scope", SCOPE_MIX)
+    remote_mode = prefs.get("remote_mode", REMOTE_INCLUDE)
+    cities = prefs.get("preferred_locations") or []
+
+    candidates = _fetch_bulk() + _fetch_query(query)
+    for city in cities:
+        if city.strip():
+            candidates += _fetch_adzuna_city(query, city.strip())
+    upsert_jobs(candidates)
+
+    sent = get_sent_keys(user_id)
+    fresh = [j for j in candidates if j.canonical_key not in sent]
+    matches = match_jobs(
+        fresh, profile, limit or settings.max_jobs_per_digest,
+        max_per_company=settings.max_per_company,
+        location_scope=scope, remote_mode=remote_mode, preferred_locations=cities,
+    )
+
+    delivered = False
+    if matches:
+        if send and u.get("telegram_chat_id"):
+            from app.notify.telegram import send_digest
+            send_digest(u["telegram_chat_id"], matches)
+            delivered = True
+        record_sent(user_id, [m.job.canonical_key for m in matches])
+    return {"new_jobs": len(matches), "sent_to_telegram": delivered}
 
 
 def run_daily() -> dict:

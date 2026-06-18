@@ -15,6 +15,7 @@ async function currentUser() {
     .from("users")
     .select("id, email, channel_prefs")
     .ilike("email", email)
+    .limit(1)
     .maybeSingle();
   return { email, user: data };
 }

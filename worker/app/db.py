@@ -95,6 +95,19 @@ def download_resume(path: str) -> bytes:
     return get_client().storage.from_(_RESUME_BUCKET).download(path)
 
 
+def get_user_for_run(user_id: str) -> dict | None:
+    """Load one user (with profile + saved searches) for an on-demand run."""
+    res = (
+        get_client()
+        .table("users")
+        .select("id, telegram_chat_id, channel_prefs, profiles(*), saved_searches(*)")
+        .eq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0] if res.data else None
+
+
 def get_active_users_with_profiles() -> list[dict]:
     """Users who can receive a digest: have a telegram_chat_id and a parsed profile."""
     users = (
