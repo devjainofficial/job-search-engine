@@ -42,7 +42,7 @@ export async function POST() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ user_id: user.id, limit: 20 }),
     });
-    if (!res.ok) return NextResponse.json({ error: "Search failed: " + (await res.text()) }, { status: 502 });
+    if (!res.ok) return NextResponse.json({ error: "We couldn't complete the search just now. Please try again shortly." }, { status: 502 });
     return NextResponse.json(await res.json());
   } catch {
     // Worker still completes server-side even if our wait timed out.

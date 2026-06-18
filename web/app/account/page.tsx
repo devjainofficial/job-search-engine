@@ -21,6 +21,9 @@ export default function AccountPage() {
   const [acct, setAcct] = useState<Account | null>(null);
   const [cities, setCities] = useState("");
   const [saved, setSaved] = useState(false);
+  const [rolesText, setRolesText] = useState("");
+  const [skillsText, setSkillsText] = useState("");
+  const [profSaved, setProfSaved] = useState(false);
 
   const loadAccount = useCallback(async () => {
     const res = await fetch("/api/account");
@@ -28,8 +31,22 @@ export default function AccountPage() {
     const data: Account = await res.json();
     setAcct(data);
     setCities((data.prefs?.preferred_locations ?? []).join(", "));
+    setRolesText((data.profile?.role_titles ?? []).join(", "));
+    setSkillsText((data.profile?.skills ?? []).join(", "));
     setStep("authed");
   }, []);
+
+  async function saveProfile() {
+    setProfSaved(false);
+    const res = await fetch("/api/account", {
+      method: "PATCH", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        role_titles: rolesText.split(",").map((s) => s.trim()).filter(Boolean),
+        skills: skillsText.split(",").map((s) => s.trim()).filter(Boolean),
+      }),
+    });
+    if (res.ok) setProfSaved(true);
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -40,17 +57,17 @@ export default function AccountPage() {
 
   async function sendOtp(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null); setInfo(null);
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: true } });
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
     setBusy(false);
-    if (error) setError(error.message);
-    else { setStep("otp"); setInfo("We emailed you a 6-digit code. Enter it below."); }
+    if (error) setError("We couldn't send the code. Please check your email address and try again.");
+    else { setStep("otp"); setInfo("We've emailed you a 6-digit code. Enter it below (check spam too)."); }
   }
 
   async function verify(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null);
-    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: "email" });
     setBusy(false);
-    if (error) setError(error.message);
+    if (error) setError("That code didn't work — it may have expired. Please request a new one.");
     else loadAccount();
   }
 
@@ -66,7 +83,7 @@ export default function AccountPage() {
       provider: "google",
       options: { redirectTo: `${window.location.origin}/auth/callback?next=/account` },
     });
-    if (error) setError(error.message);
+    if (error) setError("Couldn't start Google sign-in. Please try again.");
   }
 
   const [finding, setFinding] = useState(false);
@@ -84,7 +101,7 @@ export default function AccountPage() {
         setFindMsg(data.new_jobs > 0 ? `Found ${data.new_jobs} new job(s)!` : "No new jobs right now — check back later.");
         await loadAccount();
       }
-    } catch { setFindMsg("Network error"); }
+    } catch { setFindMsg("Network hiccup — please try again."); }
     finally { setFinding(false); }
   }
 
@@ -140,15 +157,19 @@ export default function AccountPage() {
         <div className="card"><div className="msg warn">No profile found for this email. Upload your resume on the <a href="/">home page</a> first.</div></div>
       ) : (
         <>
-          {acct?.profile && (
-            <div className="card" style={{ marginBottom: 18 }}>
-              <div className="profile-h">Detected roles</div>
-              <div className="tags">{acct.profile.role_titles.map((r) => <span className="tag" key={r}>{r}</span>)}</div>
-              <div className="profile-h">Skills</div>
-              <div className="tags">{acct.profile.skills.slice(0, 14).map((s) => <span className="tag" key={s}>{s}</span>)}</div>
-              {acct.profile.location && <p className="hint">Resume location: {acct.profile.location}</p>}
-            </div>
-          )}
+          <div className="card" style={{ marginBottom: 18 }}>
+            <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Your profile</h2>
+            <p className="hint" style={{ marginTop: 0 }}>Fix anything we mis-read from your resume.</p>
+            <label htmlFor="roles">Target roles (comma-separated)</label>
+            <input id="roles" type="text" value={rolesText} placeholder="e.g. Full-Stack Developer, Software Engineer"
+              onChange={(e) => setRolesText(e.target.value)} />
+            <label htmlFor="skills">Skills (comma-separated)</label>
+            <input id="skills" type="text" value={skillsText} placeholder="e.g. React, Node.js, Python"
+              onChange={(e) => setSkillsText(e.target.value)} />
+            <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px" }}>Save profile</button>
+            {profSaved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on your next search.</p>}
+            {acct?.profile?.location && <p className="hint">Resume location: {acct.profile.location}</p>}
+          </div>
 
           <div className="card" style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Preferences</h2>

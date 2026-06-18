@@ -64,25 +64,53 @@ export async function PATCH(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "No profile for this account" }, { status: 404 });
 
   const body = await req.json().catch(() => ({}));
+  const cleanList = (v: unknown, n: number) =>
+    Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean).slice(0, n) : null;
+
+  // Preference fields -> channel_prefs
   const update: Record<string, unknown> = {};
   if (body.location_scope !== undefined) {
-    if (!SCOPES.includes(body.location_scope)) return NextResponse.json({ error: "Invalid location_scope" }, { status: 400 });
+    if (!SCOPES.includes(body.location_scope)) return NextResponse.json({ error: "Please choose a valid location option." }, { status: 400 });
     update.location_scope = body.location_scope;
   }
   if (body.remote_mode !== undefined) {
-    if (!REMOTE_MODES.includes(body.remote_mode)) return NextResponse.json({ error: "Invalid remote_mode" }, { status: 400 });
+    if (!REMOTE_MODES.includes(body.remote_mode)) return NextResponse.json({ error: "Please choose a valid remote option." }, { status: 400 });
     update.remote_mode = body.remote_mode;
   }
   if (body.preferred_locations !== undefined) {
-    if (!Array.isArray(body.preferred_locations)) return NextResponse.json({ error: "preferred_locations must be an array" }, { status: 400 });
-    update.preferred_locations = body.preferred_locations.map((s: unknown) => String(s).trim()).filter(Boolean).slice(0, 5);
+    const v = cleanList(body.preferred_locations, 5);
+    if (v === null) return NextResponse.json({ error: "Cities must be a list." }, { status: 400 });
+    update.preferred_locations = v;
   }
-  if (Object.keys(update).length === 0) return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
 
+  // Profile fields -> profiles (let users fix a mis-parsed role/skills)
+  const profileUpdate: Record<string, unknown> = {};
+  if (body.role_titles !== undefined) {
+    const v = cleanList(body.role_titles, 8);
+    if (v === null) return NextResponse.json({ error: "Roles must be a list." }, { status: 400 });
+    profileUpdate.role_titles = v;
+  }
+  if (body.skills !== undefined) {
+    const v = cleanList(body.skills, 30);
+    if (v === null) return NextResponse.json({ error: "Skills must be a list." }, { status: 400 });
+    profileUpdate.skills = v;
+  }
+
+  if (Object.keys(update).length === 0 && Object.keys(profileUpdate).length === 0) {
+    return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
+  }
+
+  const supabase = supabaseAdmin();
   const prefs = { ...(user.channel_prefs ?? { telegram: true }), ...update };
-  const { error } = await supabaseAdmin().from("users").update({ channel_prefs: prefs }).eq("id", user.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true, prefs });
+  if (Object.keys(update).length) {
+    const { error } = await supabase.from("users").update({ channel_prefs: prefs }).eq("id", user.id);
+    if (error) return NextResponse.json({ error: "Couldn't save your preferences. Please try again." }, { status: 500 });
+  }
+  if (Object.keys(profileUpdate).length) {
+    const { error } = await supabase.from("profiles").update(profileUpdate).eq("user_id", user.id);
+    if (error) return NextResponse.json({ error: "Couldn't save your profile. Please try again." }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, prefs, profile: profileUpdate });
 }
 
 export async function DELETE() {

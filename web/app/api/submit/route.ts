@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     form = await req.formData();
   } catch {
-    return NextResponse.json({ error: "Invalid form submission" }, { status: 400 });
+    return NextResponse.json({ error: "Something went wrong submitting the form. Please try again." }, { status: 400 });
   }
 
   const email = String(form.get("email") ?? "").trim().toLowerCase();
@@ -34,22 +34,22 @@ export async function POST(req: NextRequest) {
     .filter(Boolean)
     .slice(0, 5); // cap to keep it sane
 
-  // Validation
+  // Validation (friendly, actionable messages)
   if (!email || !email.includes("@")) {
-    return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
+    return NextResponse.json({ error: "Please enter a valid email address." }, { status: 400 });
   }
   if (!consent) {
-    return NextResponse.json({ error: "Consent is required to process your resume" }, { status: 400 });
+    return NextResponse.json({ error: "Please tick the consent box so we can process your resume." }, { status: 400 });
   }
   if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: "Please attach your resume" }, { status: 400 });
+    return NextResponse.json({ error: "Please attach your resume to continue." }, { status: 400 });
   }
   if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Resume must be under 3 MB" }, { status: 400 });
+    return NextResponse.json({ error: "That file is over 3 MB. Please upload a smaller resume." }, { status: 400 });
   }
   const lower = file.name.toLowerCase();
   if (!ALLOWED.some((ext) => lower.endsWith(ext))) {
-    return NextResponse.json({ error: "Use a PDF, DOCX, or TXT file" }, { status: 400 });
+    return NextResponse.json({ error: "Please upload a PDF, DOCX, or TXT file." }, { status: 400 });
   }
 
   const supabase = supabaseAdmin();
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       .select("id")
       .single();
     if (userErr || !user) {
-      return NextResponse.json({ error: "Could not create account: " + (userErr?.message ?? "") }, { status: 500 });
+      return NextResponse.json({ error: "We couldn't create your account just now. Please try again in a moment." }, { status: 500 });
     }
     userId = user.id as string;
     created = true;
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     .upload(path, bytes, { contentType: file.type || "application/octet-stream", upsert: true });
   if (upErr) {
     if (created) await supabase.from("users").delete().eq("id", userId); // roll back only a fresh account
-    return NextResponse.json({ error: "Upload failed: " + upErr.message }, { status: 500 });
+    return NextResponse.json({ error: "We couldn't upload your resume. Please try again." }, { status: 500 });
   }
 
   // 3. Upsert the profile row pointing at the raw file (parsed_at set by the worker).
@@ -109,9 +109,9 @@ export async function POST(req: NextRequest) {
     });
     const connectUrl = telegramConnectUrl(userId);
     if (!res.ok) {
-      const detail = await res.text();
       return NextResponse.json(
-        { userId, connectUrl, parsed: false, warning: "Saved, but parsing failed: " + detail },
+        { userId, connectUrl, parsed: false,
+          warning: "You're signed up! We couldn't read your resume automatically this time — we'll retry it shortly, no action needed." },
         { status: 202 },
       );
     }
@@ -119,7 +119,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ userId, connectUrl, parsed: true, profile: parsed });
   } catch (e) {
     return NextResponse.json(
-      { userId, connectUrl: telegramConnectUrl(userId), parsed: false, warning: "Saved, but the parser is unreachable. It will be retried." },
+      { userId, connectUrl: telegramConnectUrl(userId), parsed: false,
+        warning: "You're signed up! Our matching service is just waking up — your profile will be ready in a minute." },
       { status: 202 },
     );
   }
