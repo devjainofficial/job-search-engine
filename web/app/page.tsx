@@ -123,9 +123,9 @@ function SuccessView({ s }: { s: Success }) {
         )}
 
         <div className="links">
-          <a href={`/dashboard/${s.userId}`}>View your matches</a>
-          <a href={`/manage/${s.userId}`}>Manage / delete my data</a>
+          <a href="/account">Manage preferences &amp; view matches</a>
         </div>
+        <p className="hint">Sign in on the account page with this email to edit preferences anytime.</p>
       </div>
     </main>
   );
