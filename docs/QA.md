@@ -8,35 +8,43 @@ Live URLs:
 > action after an idle period (upload / find-now / Telegram connect) can take
 > ~50s. This is expected, not a bug. Subsequent actions are fast.
 
-## 1. Sign-up / upload (home page, no login needed)
-| # | Steps | Expected |
-|---|-------|----------|
-| 1.1 | Upload a valid PDF/DOCX/TXT, tick consent, submit | "You're almost set" + detected roles/skills; Connect Telegram button |
-| 1.2 | Submit with no email / bad email | "Please enter a valid email address." |
-| 1.3 | Submit without ticking consent | "Please tick the consent box…" |
-| 1.4 | Submit with no file | "Please attach your resume to continue." |
-| 1.5 | Upload a >3 MB file | "That file is over 3 MB…" |
-| 1.6 | Upload a .png / .zip | "Please upload a PDF, DOCX, or TXT file." |
-| 1.7 | Upload a scanned/image-only PDF (no text) | Signed up + friendly "couldn't read your resume… we'll retry" |
-| 1.8 | Re-upload with the SAME email | Reuses the same account (no duplicate); profile updates |
-| 1.9 | Same email different case (Foo@x.com vs foo@x.com) | Treated as one account |
+App is now **login-first**: nothing (including résumé upload) is accessible without signing in. Email login is hidden (needs a custom domain); **Google is the only sign-in**.
 
-## 2. Telegram connect
+## 1. Landing + login (`/`)
 | # | Steps | Expected |
 |---|-------|----------|
-| 2.1 | Tap "Connect Telegram", press Start in Telegram | "Connected" message in Telegram |
-| 2.2 | Open a connect link with a tampered token | "That link looks invalid…" |
-| 2.3 | Send the bot a plain message | Friendly help reply |
+| 1.1 | Open `/` logged out | Welcome hero + "Continue with Google" only (no upload, no email field) |
+| 1.2 | Click "Continue with Google" | Google consent → returns signed in |
+| 1.3 | Open `/` while already logged in | Auto-redirects to onboarding (or dashboard if already set up) |
+| 1.4 | Hit `/api/onboarding` or `/api/account` logged out | 401 |
 
-## 3. Login (/account)
+## 2. Onboarding wizard (`/onboarding`, first-time, one step at a time)
 | # | Steps | Expected |
 |---|-------|----------|
-| 3.1 | "Continue with Google" | Logs in, shows account |
-| 3.2 | Email -> "Email me a code" -> enter code | Logs in |
-| 3.3 | Enter wrong/expired code | "That code didn't work — request a new one." |
-| 3.4 | Log in with an email that never signed up | "No profile found… upload first" |
-| 3.5 | Visit /account when logged out | Sign-in screen (not data) |
-| 3.6 | Hit /api/account directly when logged out | 401 |
+| 2.1 | Welcome → Get started | Moves to upload step; progress bar advances |
+| 2.2 | Upload step: continue with no file / no consent | Button disabled / "Attach your résumé and accept consent" |
+| 2.3 | Upload >3 MB or .png/.zip | Friendly size/type error |
+| 2.4 | Upload valid résumé + consent | "Reading your résumé…" then roles/skills pre-filled from it |
+| 2.5 | Roles/Skills/Cities steps | Chip input: type + Enter/comma adds a bubble; × or Backspace removes |
+| 2.6 | Location & Remote steps | Tap a card → auto-saves and advances |
+| 2.7 | Cities step → Skip | Advances with no cities |
+| 2.8 | Back button on any step | Returns to previous step, keeps data |
+| 2.9 | Telegram step → Connect → Finish | Lands on `/account`; revisiting `/onboarding` now redirects to `/account` |
+| 2.10 | Scanned/image-only PDF (no text) | Proceeds; roles/skills empty to fill manually |
+
+## 3. Telegram connect
+| # | Steps | Expected |
+|---|-------|----------|
+| 3.1 | Tap "Connect Telegram", press Start | "Connected" message in Telegram |
+| 3.2 | Connect link with a tampered token | "That link looks invalid…" |
+| 3.3 | Send the bot a plain message | Friendly help reply |
+
+## 3b. Login / session (`/account`)
+| # | Steps | Expected |
+|---|-------|----------|
+| 3b.1 | "Continue with Google" | Logs in, shows account hub |
+| 3b.2 | Visit `/account` logged out | Sign-in screen (Google only), not data |
+| 3b.3 | Hit `/api/account` logged out | 401 |
 
 ## 4. Account hub (logged in)
 | # | Steps | Expected |
