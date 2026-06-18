@@ -14,6 +14,8 @@ from app.sources._http import get_json
 
 SOURCE_NAME = "careerjet"
 _URL = "http://public.api.careerjet.net/search"
+# Careerjet requires a Referer header identifying the calling site.
+_REFERER = "https://jobsearch-web-devjain2309s-projects.vercel.app"
 
 
 class CareerjetSource:
@@ -37,7 +39,7 @@ class CareerjetSource:
         }
         if location:
             params["location"] = location
-        data = get_json(_URL, params=params)
+        data = get_json(_URL, params=params, headers={"Referer": _REFERER})
         if data.get("type") != "JOBS":
             return []
         return [self._to_canonical(j) for j in (data.get("jobs") or [])]

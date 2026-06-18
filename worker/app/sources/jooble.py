@@ -22,9 +22,9 @@ class JoobleSource:
         settings = get_settings()
         if not settings.jooble_api_key:
             return []
-        body: dict = {"keywords": query}
-        if location:
-            body["location"] = location
+        # India-leaning: default to India when no city/location is given (a broad
+        # query with no location returns mostly global noise).
+        body: dict = {"keywords": query, "location": location or "India"}
         data = post_json(_URL + settings.jooble_api_key, body)
         return [self._to_canonical(j) for j in (data.get("jobs") or [])]
 
