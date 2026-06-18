@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import TagInput from "@/components/TagInput";
 
 type Job = { title: string; company: string; location: string | null; apply_url: string; apply_url_type: string; source: string; sent_at: string };
 type Profile = { role_titles: string[]; skills: string[]; location: string | null; years_experience: number | null } | null;
@@ -16,10 +17,10 @@ export default function AccountPage() {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [acct, setAcct] = useState<Account | null>(null);
-  const [cities, setCities] = useState("");
+  const [cities, setCities] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-  const [rolesText, setRolesText] = useState("");
-  const [skillsText, setSkillsText] = useState("");
+  const [roles, setRoles] = useState<string[]>([]);
+  const [skills, setSkills] = useState<string[]>([]);
   const [profSaved, setProfSaved] = useState(false);
 
   const loadAccount = useCallback(async () => {
@@ -27,9 +28,9 @@ export default function AccountPage() {
     if (res.status === 401) { setStep("email"); return; }
     const data: Account = await res.json();
     setAcct(data);
-    setCities((data.prefs?.preferred_locations ?? []).join(", "));
-    setRolesText((data.profile?.role_titles ?? []).join(", "));
-    setSkillsText((data.profile?.skills ?? []).join(", "));
+    setCities(data.prefs?.preferred_locations ?? []);
+    setRoles(data.profile?.role_titles ?? []);
+    setSkills(data.profile?.skills ?? []);
     setStep("authed");
   }, []);
 
@@ -37,10 +38,7 @@ export default function AccountPage() {
     setProfSaved(false);
     const res = await fetch("/api/account", {
       method: "PATCH", headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        role_titles: rolesText.split(",").map((s) => s.trim()).filter(Boolean),
-        skills: skillsText.split(",").map((s) => s.trim()).filter(Boolean),
-      }),
+      body: JSON.stringify({ role_titles: roles, skills }),
     });
     if (res.ok) setProfSaved(true);
   }
@@ -122,19 +120,17 @@ export default function AccountPage() {
       <p className="sub">{acct?.email} · <a onClick={logout} style={{ cursor: "pointer" }}>Sign out</a></p>
 
       {!acct?.found ? (
-        <div className="card"><div className="msg warn">No profile found for this email. Upload your resume on the <a href="/">home page</a> first.</div></div>
+        <div className="card"><div className="msg warn">Let's finish setting up — <a href="/onboarding">upload your résumé</a> to get started.</div></div>
       ) : (
         <>
           <div className="card" style={{ marginBottom: 18 }}>
             <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Your profile</h2>
             <p className="hint" style={{ marginTop: 0 }}>Fix anything we mis-read from your resume.</p>
-            <label htmlFor="roles">Target roles (comma-separated)</label>
-            <input id="roles" type="text" value={rolesText} placeholder="e.g. Full-Stack Developer, Software Engineer"
-              onChange={(e) => setRolesText(e.target.value)} />
-            <label htmlFor="skills">Skills (comma-separated)</label>
-            <input id="skills" type="text" value={skillsText} placeholder="e.g. React, Node.js, Python"
-              onChange={(e) => setSkillsText(e.target.value)} />
-            <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px" }}>Save profile</button>
+            <label>Target roles</label>
+            <TagInput value={roles} onChange={setRoles} placeholder="e.g. Full-Stack Developer" max={8} />
+            <label style={{ marginTop: 16 }}>Skills</label>
+            <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Node.js, Python" max={30} />
+            <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px", marginTop: 16 }}>Save profile</button>
             {profSaved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on your next search.</p>}
             {acct?.profile?.location && <p className="hint">Resume location: {acct.profile.location}</p>}
           </div>
@@ -155,10 +151,9 @@ export default function AccountPage() {
               <option value="no_remote">No remote (onsite only)</option>
             </select>
 
-            <label htmlFor="cities">Preferred cities (optional, overrides location)</label>
-            <input id="cities" type="text" value={cities} placeholder="e.g. Ahmedabad, Pune"
-              onChange={(e) => setCities(e.target.value)}
-              onBlur={() => savePrefs({ preferred_locations: cities.split(",").map((s) => s.trim()).filter(Boolean) })} />
+            <label style={{ marginTop: 16 }}>Preferred cities (optional, overrides location)</label>
+            <TagInput value={cities} onChange={(next) => { setCities(next); savePrefs({ preferred_locations: next }); }}
+              placeholder="e.g. Ahmedabad, Pune" max={5} />
             {saved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
           </div>
 

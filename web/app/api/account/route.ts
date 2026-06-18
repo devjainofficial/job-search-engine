@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { telegramConnectUrl } from "@/lib/connectToken";
 import { RESUME_BUCKET, supabaseAdmin } from "@/lib/supabaseAdmin";
 import { sessionEmail } from "@/lib/supabaseServer";
 
@@ -55,7 +56,11 @@ export async function GET() {
       .filter(Boolean);
   }
 
-  return NextResponse.json({ found: true, email, prefs: user.channel_prefs ?? {}, profile, jobs });
+  return NextResponse.json({
+    found: true, email, prefs: user.channel_prefs ?? {}, profile, jobs,
+    connectUrl: telegramConnectUrl(user.id),
+    onboarded: !!profile?.parsed_at,
+  });
 }
 
 export async function PATCH(req: NextRequest) {

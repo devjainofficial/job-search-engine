@@ -117,6 +117,73 @@ button.danger { background: var(--err); }
 .topnav .brand { font-weight: 700; letter-spacing: 0.2px; }
 .topnav a { font-size: 0.9rem; }
 
+/* Chip / tag ("bubble") input */
+.taginput {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  min-height: 50px; padding: 10px 12px; background: #0e1422;
+  border: 1px solid var(--border); border-radius: 10px; cursor: text;
+}
+.taginput input {
+  flex: 1; min-width: 120px; border: none; background: transparent;
+  color: var(--fg); font-size: 0.95rem; outline: none; padding: 4px 2px;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 6px; background: #1c2740;
+  border: 1px solid #2f3e5e; color: var(--fg); border-radius: 999px;
+  padding: 5px 6px 5px 12px; font-size: 0.85rem; white-space: nowrap;
+}
+.chip button {
+  width: 18px; height: 18px; padding: 0; margin: 0; border: none; border-radius: 50%;
+  background: #33425f; color: #cdd6e6; font-size: 0.9rem; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.suggest { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.chip.add {
+  width: auto; height: auto; background: transparent; border: 1px dashed var(--border);
+  color: var(--muted); padding: 5px 12px; cursor: pointer; font-size: 0.82rem; border-radius: 999px;
+}
+.chip.add:hover { color: var(--fg); border-color: var(--accent); }
+
+/* Typeform-style wizard */
+.wiz { max-width: 600px; margin: 0 auto; padding: 0 20px; min-height: 100dvh; display: flex; flex-direction: column; }
+.wiz-bar { height: 4px; background: var(--border); border-radius: 999px; margin: 18px 0 0; overflow: hidden; }
+.wiz-bar > span { display: block; height: 100%; background: var(--accent); transition: width 0.4s ease; }
+.wiz-count { color: var(--muted); font-size: 0.8rem; margin-top: 8px; }
+.wiz-step { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 40px; animation: rise 0.45s ease; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.wiz-q { font-size: 1.7rem; font-weight: 700; margin: 0 0 8px; line-height: 1.25; }
+.wiz-help { color: var(--muted); margin: 0 0 22px; }
+.wiz-actions { display: flex; gap: 12px; align-items: center; margin-top: 26px; }
+.wiz-actions button { width: auto; margin: 0; padding: 12px 26px; }
+.wiz-back { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+.wiz-skip { background: transparent; color: var(--muted); border: none; width: auto; padding: 8px; cursor: pointer; }
+.enter-hint { color: var(--muted); font-size: 0.8rem; }
+
+/* Big choice cards */
+.choices { display: grid; gap: 12px; }
+.choice {
+  text-align: left; width: 100%; margin: 0; padding: 16px 18px; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px; color: var(--fg); cursor: pointer; transition: all 0.15s;
+}
+.choice:hover { border-color: var(--accent); }
+.choice.sel { border-color: var(--accent); background: rgba(79,140,255,0.10); }
+.choice .c-title { font-weight: 600; font-size: 1rem; }
+.choice .c-sub { color: var(--muted); font-size: 0.85rem; margin-top: 3px; }
+
+/* Dropzone */
+.drop {
+  border: 2px dashed var(--border); border-radius: 14px; padding: 34px 20px; text-align: center;
+  cursor: pointer; transition: border-color 0.15s; background: #0e1422;
+}
+.drop:hover, .drop.over { border-color: var(--accent); }
+.drop .big { font-size: 1.05rem; font-weight: 600; }
+
+/* Auth / welcome hero */
+.hero { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 24px; }
+.hero h1 { font-size: 2.1rem; max-width: 12ch; line-height: 1.15; }
+.hero .sub { max-width: 46ch; }
+.g-btn { background: #fff; color: #1f2937; font-weight: 600; padding: 13px 22px; border-radius: 10px; border: none; cursor: pointer; font-size: 1rem; }
+
 /* How it works */
 .how { counter-reset: step; list-style: none; margin: 26px 0 8px; padding: 0; }
 .how li {
