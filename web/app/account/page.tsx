@@ -60,6 +60,15 @@ export default function AccountPage() {
     if (res.ok) { const d = await res.json(); setAcct((a) => a ? { ...a, prefs: d.prefs } : a); setSaved(true); }
   }
 
+  async function google() {
+    setError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=/account` },
+    });
+    if (error) setError(error.message);
+  }
+
   async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); setEmail(""); setCode(""); }
 
   async function deleteAccount() {
@@ -77,6 +86,10 @@ export default function AccountPage() {
         <h1>Sign in</h1>
         <p className="sub">Use the email you signed up with to manage preferences and see your jobs.</p>
         <div className="card">
+          <button type="button" onClick={google} style={{ marginTop: 0, background: "#fff", color: "#1f2937" }}>
+            Continue with Google
+          </button>
+          <p className="hint" style={{ textAlign: "center" }}>or use email</p>
           {step === "email" ? (
             <form onSubmit={sendOtp}>
               <label htmlFor="email">Email</label>
