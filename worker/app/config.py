@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     # unless set. Free ~500 req/mo then PAID (see docs/RESEARCH.md).
     rapidapi_key: str = Field("", alias="RAPIDAPI_KEY")
 
+    # Jooble + Careerjet: free-key India/global aggregators. Off unless set.
+    jooble_api_key: str = Field("", alias="JOOBLE_API_KEY")
+    careerjet_affid: str = Field("", alias="CAREERJET_AFFID")
+
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 

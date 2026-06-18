@@ -20,15 +20,17 @@ from app.sources._http import fetch_many
 from app.sources.adzuna import AdzunaSource
 from app.sources.arbeitnow import ArbeitnowSource
 from app.sources.ashby import AshbySource
+from app.sources.careerjet import CareerjetSource
 from app.sources.greenhouse import GreenhouseSource
+from app.sources.jooble import JoobleSource
 from app.sources.jsearch import JSearchSource
 from app.sources.lever import LeverSource
 from app.sources.remoteok import RemoteOKSource
 from app.sources.remotive import RemotiveSource
 
 # Query sources support server-side keyword search (fetched per distinct query).
-# JSearch and Adzuna are off unless their keys are set.
-QUERY_SOURCES = [RemotiveSource(), AdzunaSource(), JSearchSource()]
+# Adzuna, JSearch, Jooble, Careerjet are off unless their keys are set.
+QUERY_SOURCES = [RemotiveSource(), AdzunaSource(), JSearchSource(), JoobleSource(), CareerjetSource()]
 
 # Bulk sources return a firehose or whole company boards (fetched once per run).
 BULK_SOURCES = [RemoteOKSource(), ArbeitnowSource(),

@@ -42,6 +42,31 @@ def get_json(url: str, params: dict | None = None, timeout: float = 20.0, retrie
     raise RuntimeError(f"GET {url} failed after {retries + 1} attempts (429)")
 
 
+def post_json(url: str, json_body: dict, timeout: float = 20.0, retries: int = 2,
+              headers: dict | None = None):
+    """POST JSON and parse the JSON response, backing off on 429/transient errors."""
+    merged = {**_HEADERS, **(headers or {})}
+    last_exc: Exception | None = None
+    for attempt in range(retries + 1):
+        try:
+            with httpx.Client(timeout=timeout, headers=merged, follow_redirects=True) as client:
+                resp = client.post(url, json=json_body)
+            if resp.status_code == 429:
+                time.sleep(1.5 * (attempt + 1))
+                continue
+            resp.raise_for_status()
+            return resp.json()
+        except httpx.HTTPError as exc:
+            last_exc = exc
+            if attempt < retries:
+                time.sleep(1.0 * (attempt + 1))
+                continue
+            raise
+    if last_exc:
+        raise last_exc
+    raise RuntimeError(f"POST {url} failed after {retries + 1} attempts (429)")
+
+
 def fetch_many(items: list[_T], fetch_one: Callable[[_T], list[_R]], max_workers: int = 8) -> list[_R]:
     """Run fetch_one over items concurrently and flatten the results. fetch_one
     must handle its own errors (return [] on failure) so one bad item is skipped."""
