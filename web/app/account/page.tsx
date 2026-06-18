@@ -12,9 +12,8 @@ const APPLY_LABEL: Record<string, string> = { direct_apply: "Apply", job_detail:
 
 export default function AccountPage() {
   const supabase = supabaseBrowser();
-  const [step, setStep] = useState<"loading" | "email" | "otp" | "authed">("loading");
+  const [step, setStep] = useState<"loading" | "email" | "sent" | "authed">("loading");
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -55,20 +54,15 @@ export default function AccountPage() {
     });
   }, [supabase, loadAccount]);
 
-  async function sendOtp(e: React.FormEvent) {
+  async function sendLink(e: React.FormEvent) {
     e.preventDefault(); setBusy(true); setError(null); setInfo(null);
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true } });
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim().toLowerCase(),
+      options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=/account` },
+    });
     setBusy(false);
-    if (error) setError("We couldn't send the code. Please check your email address and try again.");
-    else { setStep("otp"); setInfo("We've emailed you a 6-digit code. Enter it below (check spam too)."); }
-  }
-
-  async function verify(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError(null);
-    const { error } = await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: code.trim(), type: "email" });
-    setBusy(false);
-    if (error) setError("That code didn't work — it may have expired. Please request a new one.");
-    else loadAccount();
+    if (error) setError("We couldn't send the link. Please check your email address and try again.");
+    else setStep("sent");
   }
 
   async function savePrefs(patch: Prefs) {
@@ -105,7 +99,7 @@ export default function AccountPage() {
     finally { setFinding(false); }
   }
 
-  async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); setEmail(""); setCode(""); }
+  async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); setEmail(""); }
 
   async function deleteAccount() {
     if (!confirm("Permanently delete your account, profile, history, and resume file?")) return;
@@ -126,17 +120,19 @@ export default function AccountPage() {
             Continue with Google
           </button>
           <p className="hint" style={{ textAlign: "center" }}>or use email</p>
-          {step === "email" ? (
-            <form onSubmit={sendOtp}>
+          {step === "sent" ? (
+            <div className="msg ok">
+              <strong>Check your email.</strong> We sent a sign-in link to {email}. Click it to sign in
+              (check spam too). You can close this tab.
+              <div style={{ marginTop: 10 }}>
+                <a onClick={() => setStep("email")} style={{ cursor: "pointer" }}>Use a different email</a>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={sendLink}>
               <label htmlFor="email">Email</label>
               <input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-              <button type="submit" disabled={busy}>{busy ? "Sending…" : "Email me a code"}</button>
-            </form>
-          ) : (
-            <form onSubmit={verify}>
-              <label htmlFor="code">6-digit code</label>
-              <input id="code" type="text" inputMode="numeric" required value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
-              <button type="submit" disabled={busy}>{busy ? "Verifying…" : "Sign in"}</button>
+              <button type="submit" disabled={busy}>{busy ? "Sending…" : "Email me a sign-in link"}</button>
             </form>
           )}
           {info && <div className="msg ok">{info}</div>}
