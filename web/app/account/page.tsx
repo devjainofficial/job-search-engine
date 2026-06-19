@@ -72,16 +72,14 @@ export default function AccountPage() {
     setFinding(true); setFindMsg(null);
     try {
       const res = await fetch("/api/account/run", { method: "POST" });
-      const data = await res.json();
-      if (res.status === 429) setFindMsg(data.error);
-      else if (res.status === 202) { setFindMsg(data.message); setTimeout(loadAccount, 10000); }
-      else if (!res.ok) setFindMsg(data.error ?? "Search failed");
-      else {
-        setFindMsg(data.new_jobs > 0 ? `Found ${data.new_jobs} new job(s)!` : "No new jobs right now — check back later.");
-        await loadAccount();
-      }
-    } catch { setFindMsg("Network hiccup — please try again."); }
-    finally { setFinding(false); }
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 429) { setFindMsg(data.error); setFinding(false); return; }
+      if (!res.ok && res.status !== 202) { setFindMsg(data.error ?? "Couldn't start the search."); setFinding(false); return; }
+      // The worker runs in the background; poll for results.
+      setFindMsg("Searching across all sources… new jobs will appear here shortly.");
+      setTimeout(loadAccount, 25000);
+      setTimeout(async () => { await loadAccount(); setFinding(false); setFindMsg("Done. You can search again anytime."); }, 55000);
+    } catch { setFindMsg("Network hiccup — please try again."); setFinding(false); }
   }
 
   async function logout() { await supabase.auth.signOut(); setAcct(null); setStep("email"); }

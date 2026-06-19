@@ -13,7 +13,7 @@ exposing them to the public internet.
 import os
 
 import httpx
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from app.config import get_settings
@@ -118,9 +118,12 @@ class RunUserRequest(BaseModel):
 
 
 @app.post("/run-user")
-def run_user_endpoint(body: RunUserRequest) -> dict:
-    """On-demand 'find new jobs now' for one user (deduped against history)."""
-    return run_for_user(body.user_id, limit=body.limit)
+def run_user_endpoint(body: RunUserRequest, background_tasks: BackgroundTasks) -> dict:
+    """On-demand 'find new jobs now' for one user. Runs in the background and acks
+    immediately so the caller never blocks on the (multi-source) fetch + cold start.
+    New jobs appear in the dashboard / Telegram once it finishes."""
+    background_tasks.add_task(run_for_user, body.user_id, body.limit)
+    return {"started": True}
 
 
 @app.post("/telegram/webhook")

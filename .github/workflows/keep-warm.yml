@@ -1,0 +1,17 @@
+# Ping the worker every ~10 min so Render's free tier doesn't cold-start during
+# active use (keeps on-demand "Find now" and résumé parsing snappy). Public repo
+# => unlimited Actions minutes. One always-on worker stays within Render's free
+# 750 instance-hours/month.
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping worker health
+        run: curl -fsS https://job-search-worker-jkrh.onrender.com/health --max-time 60 || true
