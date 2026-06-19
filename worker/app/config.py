@@ -48,6 +48,12 @@ class Settings(BaseSettings):
     # Delete job_cache rows older than this many days at the end of each run.
     cache_ttl_days: int = Field(14, alias="CACHE_TTL_DAYS")
 
+    # Freshness: drop postings older than this from a digest; bias aggregator
+    # fetches toward recent. Recent jobs are also rank-boosted (see matching).
+    max_job_age_days: int = Field(45, alias="MAX_JOB_AGE_DAYS")
+    jsearch_date_posted: str = Field("week", alias="JSEARCH_DATE_POSTED")  # today|3days|week|month|all
+    adzuna_max_days_old: int = Field(30, alias="ADZUNA_MAX_DAYS_OLD")
+
     model_config = SettingsConfigDict(
         env_file=_ENV_FILES,
         env_file_encoding="utf-8",

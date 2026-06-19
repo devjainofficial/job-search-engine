@@ -123,6 +123,7 @@ def run_for_user(user_id: str, limit: int | None = None, send: bool = True) -> d
         fresh, profile, limit or settings.max_jobs_per_digest,
         max_per_company=settings.max_per_company,
         location_scope=scope, remote_mode=remote_mode, preferred_locations=cities,
+        max_age_days=settings.max_job_age_days,
     )
 
     delivered = False
@@ -202,6 +203,7 @@ def run_daily() -> dict:
             location_scope=scope,
             remote_mode=remote_mode,
             preferred_locations=preferred_locations,
+            max_age_days=settings.max_job_age_days,
         )
         if not matches:
             continue

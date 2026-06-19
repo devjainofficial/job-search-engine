@@ -38,6 +38,8 @@ class AdzunaSource:
             "app_key": settings.adzuna_app_key,
             "what": query,
             "results_per_page": _RESULTS,
+            "max_days_old": settings.adzuna_max_days_old,  # freshness: recent postings only
+            "sort_by": "date",  # newest first
             "content-type": "application/json",
         }
         if location:

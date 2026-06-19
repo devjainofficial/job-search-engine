@@ -8,10 +8,37 @@ qualify. Skills only influence ranking, never qualification, so a job whose
 title is unrelated cannot sneak in just because its description mentions a skill.
 """
 
+from datetime import datetime, timezone
+
 from app.canonical import _slug, normalize_company
 from app.geo import OUT_COUNTRY, classify_location, is_remote, location_boost, location_matches
 from app.models import CanonicalJob, MatchedJob, Profile
 from app.seniority import seniority_ok
+
+
+def _age_days(posted_at: datetime | None, now: datetime) -> float | None:
+    """Age of a posting in days, or None if the date is unknown."""
+    if not posted_at:
+        return None
+    if posted_at.tzinfo is None:
+        posted_at = posted_at.replace(tzinfo=timezone.utc)
+    return (now - posted_at).total_seconds() / 86400
+
+
+def recency_boost(posted_at: datetime | None, now: datetime) -> float:
+    """Rank boost so fresh postings lead the digest. Unknown date = neutral."""
+    age = _age_days(posted_at, now)
+    if age is None:
+        return 0.0
+    if age <= 1:
+        return 3.0
+    if age <= 3:
+        return 2.0
+    if age <= 7:
+        return 1.0
+    if age <= 14:
+        return 0.3
+    return 0.0
 
 # Default cap on how many jobs one company may contribute to a single digest, so
 # a company posting the same role across many locations cannot flood it.
@@ -149,6 +176,7 @@ def match_jobs(
     location_scope: str = SCOPE_ANY,
     remote_mode: str = REMOTE_INCLUDE,
     preferred_locations: list[str] | None = None,
+    max_age_days: int | None = None,
 ) -> list[MatchedJob]:
     """Return up to `limit` title-relevant jobs, ranked, with at most
     `max_per_company` from any single company. Roles below the candidate's
@@ -168,6 +196,15 @@ def match_jobs(
     elif remote_mode == REMOTE_NO:
         relevant = [j for j in relevant if not is_remote(j.location)]
 
+    # Freshness: drop clearly stale postings, then fold recency into the rank so
+    # recent jobs lead. Jobs with an unknown date are kept (can't tell age).
+    now = datetime.now(timezone.utc)
+    if max_age_days is not None:
+        relevant = [j for j in relevant if (_age_days(j.posted_at, now) or 0) <= max_age_days]
+
+    def score(j: CanonicalJob) -> float:
+        return score_job(j, profile) + recency_boost(j.posted_at, now)
+
     # City-specific preference overrides the broad in/out/mix scope.
     cities = [c.strip().lower() for c in (preferred_locations or []) if c.strip()]
     if cities:
@@ -176,16 +213,16 @@ def match_jobs(
         # remote_mode already removed them above).
         remote_extra = [j for j in relevant if not location_matches(j.location, cities) and is_remote(j.location)]
         ranked = (
-            sorted((MatchedJob(job=j, score=score_job(j, profile)) for j in in_city),
+            sorted((MatchedJob(job=j, score=score(j)) for j in in_city),
                    key=lambda m: m.score, reverse=True)
-            + sorted((MatchedJob(job=j, score=score_job(j, profile)) for j in remote_extra),
+            + sorted((MatchedJob(job=j, score=score(j)) for j in remote_extra),
                      key=lambda m: m.score, reverse=True)
         )
         selected: list[MatchedJob] = []
         _take_with_company_cap(ranked, limit, max_per_company, {}, selected)
         return selected
 
-    scored = [MatchedJob(job=j, score=score_job(j, profile)) for j in relevant]
+    scored = [MatchedJob(job=j, score=score(j)) for j in relevant]
     scored.sort(key=lambda m: m.score, reverse=True)
 
     if location_scope == SCOPE_IN:

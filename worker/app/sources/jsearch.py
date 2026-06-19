@@ -34,7 +34,8 @@ class JSearchSource:
         if not settings.rapidapi_key:
             return []  # adapter disabled until a key is provided
         what = f"{query} in {location}" if location else query
-        params = {"query": what, "page": "1", "num_pages": "1", "country": self.country}
+        params = {"query": what, "page": "1", "num_pages": "1", "country": self.country,
+                  "date_posted": settings.jsearch_date_posted}  # today|3days|week|month|all
         headers = {"X-RapidAPI-Key": settings.rapidapi_key, "X-RapidAPI-Host": _HOST}
         data = get_json(_URL, params=params, headers=headers)
         return [self._to_canonical(j) for j in (data.get("data") or [])]
