@@ -79,7 +79,7 @@ export default function Onboarding() {
   async function chooseScope(v: string) { setScope(v); await save({ location_scope: v }); next(); }
   async function chooseRemote(v: string) { setRemote(v); await save({ remote_mode: v }); next(); }
 
-  if (!ready) return <main className="wiz"><div className="wiz-step"><p className="sub">Loading…</p></div></main>;
+  if (!ready) return <main className="wiz"><div className="wiz-step" style={{ alignItems: "center" }}><div className="spinner" /></div></main>;
 
   const step = STEPS[i];
   const pct = Math.round((i / (STEPS.length - 1)) * 100);

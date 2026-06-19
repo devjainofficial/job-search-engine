@@ -26,7 +26,7 @@ export default function Home() {
     if (error) setError("Couldn't start Google sign-in. Please try again.");
   }
 
-  if (checking) return <main className="hero"><p className="sub">Loading…</p></main>;
+  if (checking) return <main className="hero"><div className="spinner" /></main>;
 
   return (
     <main className="hero">

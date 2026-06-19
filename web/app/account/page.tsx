@@ -20,6 +20,7 @@ export default function AccountPage() {
   const [roles, setRoles] = useState<string[]>([]);
   const [skills, setSkills] = useState<string[]>([]);
   const [profSaved, setProfSaved] = useState(false);
+  const [tab, setTab] = useState<"jobs" | "saved" | "applied" | "settings">("jobs");
 
   const loadAccount = useCallback(async () => {
     const res = await fetch("/api/account");
@@ -89,7 +90,22 @@ export default function AccountPage() {
     setInfo("Your data has been deleted.");
   }
 
-  if (step === "loading") return <main className="wrap"><p className="sub">Loading…</p></main>;
+  if (step === "loading") {
+    return (
+      <main className="wrap">
+        <div className="topnav"><span className="brand">Daily Job Digest</span></div>
+        <div className="sk sk-tabs" />
+        <div className="card">
+          {[0, 1, 2, 3].map((i) => (
+            <div className="sk-job" key={i}>
+              <div><div className="sk sk-line w60" /><div className="sk sk-line w40" /></div>
+              <div className="sk sk-btn" />
+            </div>
+          ))}
+        </div>
+      </main>
+    );
+  }
 
   if (step !== "authed") {
     return (
@@ -110,92 +126,112 @@ export default function AccountPage() {
 
   // Authenticated
   const p = acct?.prefs ?? {};
+  const tabs: [typeof tab, string][] = [
+    ["jobs", `Jobs ${acct?.jobs?.length ?? 0}`],
+    ["saved", `Saved ${acct?.saved?.length ?? 0}`],
+    ["applied", `Applied ${acct?.applied?.length ?? 0}`],
+    ["settings", "Settings"],
+  ];
   return (
     <main className="wrap">
-      <h1>Your account</h1>
-      <p className="sub">{acct?.email} · <a onClick={logout} style={{ cursor: "pointer" }}>Sign out</a></p>
+      <div className="topnav">
+        <span className="brand">Daily Job Digest</span>
+        <span className="hint" style={{ margin: 0 }}>{acct?.email} · <a onClick={logout} style={{ cursor: "pointer" }}>Sign out</a></span>
+      </div>
 
       {!acct?.found ? (
         <div className="card"><div className="msg warn">Let's finish setting up — <a href="/onboarding">upload your résumé</a> to get started.</div></div>
       ) : (
         <>
-          <div className="card" style={{ marginBottom: 18 }}>
-            <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Your profile</h2>
-            <p className="hint" style={{ marginTop: 0 }}>Fix anything we mis-read from your resume.</p>
-            <label>Target roles</label>
-            <TagInput value={roles} onChange={setRoles} placeholder="e.g. Full-Stack Developer" max={8} />
-            <label style={{ marginTop: 16 }}>Skills</label>
-            <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Node.js, Python" max={30} />
-            <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px", marginTop: 16 }}>Save profile</button>
-            {profSaved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on your next search.</p>}
-            {acct?.profile?.location && <p className="hint">Resume location: {acct.profile.location}</p>}
+          <div className="tabs">
+            {tabs.map(([k, label]) => (
+              <button key={k} className={`tab ${tab === k ? "active" : ""}`} onClick={() => setTab(k)}>{label}</button>
+            ))}
           </div>
 
-          <div className="card" style={{ marginBottom: 18 }}>
-            <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Preferences</h2>
-            <label htmlFor="scope">Job location</label>
-            <select id="scope" value={p.location_scope ?? "mix"} onChange={(e) => savePrefs({ location_scope: e.target.value })}>
-              <option value="mix">Both, balanced (50/50)</option>
-              <option value="in_country">Within my country (incl. remote)</option>
-              <option value="outside_only">Outside my country (international)</option>
-            </select>
-
-            <label htmlFor="remote">Remote work</label>
-            <select id="remote" value={p.remote_mode ?? "include_remote"} onChange={(e) => savePrefs({ remote_mode: e.target.value })}>
-              <option value="include_remote">Include remote and onsite</option>
-              <option value="only_remote">Only remote</option>
-              <option value="no_remote">No remote (onsite only)</option>
-            </select>
-
-            <label htmlFor="freshness">Freshness</label>
-            <select id="freshness" value={p.freshness ?? "any"} onChange={(e) => savePrefs({ freshness: e.target.value })}>
-              <option value="any">Any recent (up to ~6 weeks)</option>
-              <option value="week">Posted this week</option>
-              <option value="3days">Last 3 days</option>
-              <option value="24h">Last 24 hours</option>
-            </select>
-
-            <label style={{ marginTop: 16 }}>Preferred cities (optional, overrides location)</label>
-            <TagInput value={cities} onChange={(next) => { setCities(next); savePrefs({ preferred_locations: next }); }}
-              placeholder="e.g. Ahmedabad, Pune" max={5} />
-            {saved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
-          </div>
-
-          <div className="card" style={{ marginBottom: 18 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-              <h2 style={{ fontSize: "1.05rem", margin: 0 }}>Your jobs ({acct?.jobs?.length ?? 0})</h2>
-              <button onClick={findNow} disabled={finding} style={{ width: "auto", margin: 0, padding: "8px 14px" }}>
-                {finding ? "Searching…" : "Find new jobs now"}
-              </button>
-            </div>
-            {findMsg && <div className="msg ok" style={{ marginTop: 12 }}>{findMsg}</div>}
-            <div style={{ marginTop: 14 }} />
-            {(acct?.jobs?.length ?? 0) === 0 ? (
-              <p className="hint">No jobs yet. They arrive on the next daily run.</p>
-            ) : (
-              <ul className="jobs">
-                {acct!.jobs!.map((j) => <JobCard key={j.canonical_key} job={j as Job} />)}
-              </ul>
-            )}
-          </div>
-
-          {(acct?.saved?.length ?? 0) > 0 && (
-            <div className="card" style={{ marginBottom: 18 }}>
-              <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>★ Saved ({acct!.saved!.length})</h2>
-              <ul className="jobs">{acct!.saved!.map((j) => <JobCard key={"s" + j.canonical_key} job={j as Job} />)}</ul>
+          {tab === "jobs" && (
+            <div className="card">
+              <div className="tab-head">
+                <h2>Matched jobs</h2>
+                <button onClick={findNow} disabled={finding} className="mini cta-sm">{finding ? "Searching…" : "Find new jobs now"}</button>
+              </div>
+              {findMsg && <div className="msg ok">{findMsg}</div>}
+              {(acct?.jobs?.length ?? 0) === 0 ? (
+                <p className="hint">No jobs yet — tap "Find new jobs now" or wait for the daily run.</p>
+              ) : (
+                <ul className="jobs">{acct!.jobs!.map((j) => <JobCard key={j.canonical_key} job={j as Job} />)}</ul>
+              )}
             </div>
           )}
 
-          {(acct?.applied?.length ?? 0) > 0 && (
-            <div className="card" style={{ marginBottom: 18 }}>
-              <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Applications ({acct!.applied!.length})</h2>
-              <ul className="jobs">{acct!.applied!.map((j) => <JobCard key={"a" + j.canonical_key} job={j as Job} />)}</ul>
+          {tab === "saved" && (
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Saved jobs</h2>
+              {(acct?.saved?.length ?? 0) === 0 ? (
+                <p className="hint">Nothing saved yet. Tap ☆ Save on any job to keep it here.</p>
+              ) : (
+                <ul className="jobs">{acct!.saved!.map((j) => <JobCard key={"s" + j.canonical_key} job={j as Job} />)}</ul>
+              )}
             </div>
           )}
 
-          <div className="card">
-            <button className="danger" onClick={deleteAccount}>Delete my account and data</button>
-          </div>
+          {tab === "applied" && (
+            <div className="card">
+              <h2 style={{ marginTop: 0 }}>Applications</h2>
+              {(acct?.applied?.length ?? 0) === 0 ? (
+                <p className="hint">No applications tracked yet. Set a job's status to "Applied" to track it.</p>
+              ) : (
+                <ul className="jobs">{acct!.applied!.map((j) => <JobCard key={"a" + j.canonical_key} job={j as Job} />)}</ul>
+              )}
+            </div>
+          )}
+
+          {tab === "settings" && (
+            <>
+              <div className="card" style={{ marginBottom: 18 }}>
+                <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Your profile</h2>
+                <p className="hint" style={{ marginTop: 0 }}>Fix anything we mis-read from your résumé.</p>
+                <label>Target roles</label>
+                <TagInput value={roles} onChange={setRoles} placeholder="e.g. Full-Stack Developer" max={8} />
+                <label style={{ marginTop: 16 }}>Skills</label>
+                <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Node.js, Python" max={30} />
+                <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px", marginTop: 16 }}>Save profile</button>
+                {profSaved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on your next search.</p>}
+                {acct?.profile?.location && <p className="hint">Résumé location: {acct.profile.location}</p>}
+              </div>
+
+              <div className="card" style={{ marginBottom: 18 }}>
+                <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Preferences</h2>
+                <label htmlFor="scope">Job location</label>
+                <select id="scope" value={p.location_scope ?? "mix"} onChange={(e) => savePrefs({ location_scope: e.target.value })}>
+                  <option value="mix">Both, balanced (50/50)</option>
+                  <option value="in_country">Within my country (incl. remote)</option>
+                  <option value="outside_only">Outside my country (international)</option>
+                </select>
+                <label htmlFor="remote">Remote work</label>
+                <select id="remote" value={p.remote_mode ?? "include_remote"} onChange={(e) => savePrefs({ remote_mode: e.target.value })}>
+                  <option value="include_remote">Include remote and onsite</option>
+                  <option value="only_remote">Only remote</option>
+                  <option value="no_remote">No remote (onsite only)</option>
+                </select>
+                <label htmlFor="freshness">Freshness</label>
+                <select id="freshness" value={p.freshness ?? "any"} onChange={(e) => savePrefs({ freshness: e.target.value })}>
+                  <option value="any">Any recent (up to ~6 weeks)</option>
+                  <option value="week">Posted this week</option>
+                  <option value="3days">Last 3 days</option>
+                  <option value="24h">Last 24 hours</option>
+                </select>
+                <label style={{ marginTop: 16 }}>Preferred cities (optional, overrides location)</label>
+                <TagInput value={cities} onChange={(next) => { setCities(next); savePrefs({ preferred_locations: next }); }}
+                  placeholder="e.g. Ahmedabad, Pune" max={5} />
+                {saved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on the next daily run.</p>}
+              </div>
+
+              <div className="card">
+                <button className="danger" onClick={deleteAccount}>Delete my account and data</button>
+              </div>
+            </>
+          )}
         </>
       )}
     </main>

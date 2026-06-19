@@ -112,6 +112,36 @@ a { color: var(--accent); }
 
 button.danger { background: var(--err); }
 
+/* Tabs */
+.tabs {
+  display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 4px; margin-bottom: 18px; overflow-x: auto;
+}
+.tab {
+  flex: 1; width: auto; margin: 0; white-space: nowrap; padding: 9px 14px; border: none;
+  background: transparent; color: var(--muted); border-radius: 9px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+}
+.tab.active { background: var(--accent); color: #fff; }
+.tab-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+.tab-head h2 { font-size: 1.05rem; margin: 0; }
+.cta-sm { width: auto; margin: 0; padding: 8px 14px; background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Skeleton loaders */
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+.sk {
+  background: linear-gradient(90deg, #141a2a 25%, #1c2740 37%, #141a2a 63%);
+  background-size: 800px 100%; animation: shimmer 1.3s infinite linear; border-radius: 8px;
+}
+.sk-tabs { height: 44px; margin-bottom: 18px; }
+.sk-job { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.sk-line { height: 12px; margin: 6px 0; }
+.sk-line.w60 { width: 60%; } .sk-line.w40 { width: 40%; }
+.sk-btn { width: 80px; height: 32px; flex: none; }
+
+/* Spinner */
+.spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* Job actions (save / vote / status / draft) */
 .job.muted { opacity: 0.5; }
 .job-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
