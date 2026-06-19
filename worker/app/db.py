@@ -183,6 +183,25 @@ def upsert_jobs(jobs: list[CanonicalJob]) -> None:
 
 # --- sent_jobs (dedup ledger) ----------------------------------------------
 
+def consume_quota(provider: str, cap: int) -> bool:
+    """Soft monthly rate guard for metered APIs (JSearch, SerpApi). Returns True
+    and increments the counter if under cap, else False (caller should skip).
+    cap <= 0 means unlimited."""
+    if cap <= 0:
+        return True
+    yyyymm = datetime.now(timezone.utc).strftime("%Y%m")
+    client = get_client()
+    res = client.table("api_usage").select("count").eq("provider", provider).eq("yyyymm", yyyymm).limit(1).execute()
+    cur = res.data[0]["count"] if res.data else 0
+    if cur >= cap:
+        return False
+    client.table("api_usage").upsert(
+        {"provider": provider, "yyyymm": yyyymm, "count": cur + 1},
+        on_conflict="provider,yyyymm",
+    ).execute()
+    return True
+
+
 def prune_old_jobs(days: int) -> int:
     """Delete job_cache rows older than `days`. Safe for dedup: sent_jobs keeps
     its own canonical_keys, so pruning the cache never causes a resend."""

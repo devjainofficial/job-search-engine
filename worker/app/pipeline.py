@@ -55,6 +55,14 @@ def _profile_of(user: dict) -> Profile:
     )
 
 
+_FRESHNESS_DAYS = {"24h": 1, "3days": 3, "week": 7}
+
+
+def _max_age(prefs: dict, settings) -> int:
+    """Map the user's freshness preference to a max posting age in days."""
+    return _FRESHNESS_DAYS.get(prefs.get("freshness", ""), settings.max_job_age_days)
+
+
 def _query_for_user(user: dict, profile: Profile) -> str:
     """One search term per user. Saved search wins; else first target role title."""
     for s in user.get("saved_searches") or []:
@@ -126,7 +134,7 @@ def run_for_user(user_id: str, limit: int | None = None, send: bool = True) -> d
         fresh, profile, limit or settings.max_jobs_per_digest,
         max_per_company=settings.max_per_company,
         location_scope=scope, remote_mode=remote_mode, preferred_locations=cities,
-        max_age_days=settings.max_job_age_days,
+        max_age_days=_max_age(prefs, settings),
     )
 
     delivered = False
@@ -206,7 +214,7 @@ def run_daily() -> dict:
             location_scope=scope,
             remote_mode=remote_mode,
             preferred_locations=preferred_locations,
-            max_age_days=settings.max_job_age_days,
+            max_age_days=_max_age(prefs, settings),
         )
         if not matches:
             continue

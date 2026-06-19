@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 const SCOPES = ["mix", "in_country", "outside_only"];
 const REMOTE_MODES = ["include_remote", "only_remote", "no_remote"];
+const FRESHNESS = ["any", "week", "3days", "24h"];
 
 // Find the app user row for the logged-in email (case-insensitive).
 async function currentUser() {
@@ -98,6 +99,10 @@ export async function PATCH(req: NextRequest) {
     const v = cleanList(body.preferred_locations, 5);
     if (v === null) return NextResponse.json({ error: "Cities must be a list." }, { status: 400 });
     update.preferred_locations = v;
+  }
+  if (body.freshness !== undefined) {
+    if (!FRESHNESS.includes(body.freshness)) return NextResponse.json({ error: "Invalid freshness." }, { status: 400 });
+    update.freshness = body.freshness;
   }
 
   // Profile fields -> profiles (let users fix a mis-parsed role/skills)

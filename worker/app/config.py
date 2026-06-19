@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # SerpApi Google Jobs (same data as JSearch). Off unless set. Free ~250/mo.
     serpapi_key: str = Field("", alias="SERPAPI_KEY")
 
+    # Soft monthly caps for metered APIs (free-tier guard; 0 = unlimited).
+    jsearch_monthly_cap: int = Field(190, alias="JSEARCH_MONTHLY_CAP")
+    serpapi_monthly_cap: int = Field(240, alias="SERPAPI_MONTHLY_CAP")
+
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 

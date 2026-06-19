@@ -6,7 +6,7 @@ import TagInput from "@/components/TagInput";
 import JobCard, { type Job } from "@/components/JobCard";
 
 type Profile = { role_titles: string[]; skills: string[]; location: string | null; years_experience: number | null } | null;
-type Prefs = { location_scope?: string; remote_mode?: string; preferred_locations?: string[] };
+type Prefs = { location_scope?: string; remote_mode?: string; preferred_locations?: string[]; freshness?: string };
 type Account = { found: boolean; email: string; prefs?: Prefs; profile?: Profile; jobs?: Job[]; saved?: Job[]; applied?: Job[] };
 
 export default function AccountPage() {
@@ -145,6 +145,14 @@ export default function AccountPage() {
               <option value="include_remote">Include remote and onsite</option>
               <option value="only_remote">Only remote</option>
               <option value="no_remote">No remote (onsite only)</option>
+            </select>
+
+            <label htmlFor="freshness">Freshness</label>
+            <select id="freshness" value={p.freshness ?? "any"} onChange={(e) => savePrefs({ freshness: e.target.value })}>
+              <option value="any">Any recent (up to ~6 weeks)</option>
+              <option value="week">Posted this week</option>
+              <option value="3days">Last 3 days</option>
+              <option value="24h">Last 24 hours</option>
             </select>
 
             <label style={{ marginTop: 16 }}>Preferred cities (optional, overrides location)</label>

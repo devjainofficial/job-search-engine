@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.canonical import canonical_key
 from app.config import get_settings
+from app.db import consume_quota
 from app.models import APPLY_JOB_DETAIL, CanonicalJob
 from app.sources._http import get_json
 
@@ -29,6 +30,9 @@ class SerpApiJobsSource:
     def fetch(self, query: str, location: str | None = None) -> list[CanonicalJob]:
         settings = get_settings()
         if not settings.serpapi_key:
+            return []
+        if not consume_quota("google_jobs", settings.serpapi_monthly_cap):
+            print("[serpapi] monthly cap reached; skipping")
             return []
         params = {
             "engine": "google_jobs",

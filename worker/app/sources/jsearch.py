@@ -14,6 +14,7 @@ from datetime import datetime
 
 from app.canonical import canonical_key
 from app.config import get_settings
+from app.db import consume_quota
 from app.models import APPLY_DIRECT, APPLY_JOB_DETAIL, CanonicalJob
 from app.sources._http import get_json
 
@@ -33,6 +34,9 @@ class JSearchSource:
         settings = get_settings()
         if not settings.rapidapi_key:
             return []  # adapter disabled until a key is provided
+        if not consume_quota("jsearch", settings.jsearch_monthly_cap):
+            print("[jsearch] monthly cap reached; skipping")
+            return []
         what = f"{query} in {location}" if location else query
         params = {"query": what, "page": "1", "num_pages": "1", "country": self.country,
                   "date_posted": settings.jsearch_date_posted}  # today|3days|week|month|all
