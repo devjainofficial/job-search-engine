@@ -112,6 +112,8 @@ a { color: var(--accent); }
 
 button.danger { background: var(--err); }
 
+.search { margin-bottom: 14px; }
+
 /* Tabs */
 .tabs {
   display: flex; gap: 4px; background: var(--card); border: 1px solid var(--border);

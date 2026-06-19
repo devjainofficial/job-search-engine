@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import TagInput from "@/components/TagInput";
-import JobCard, { type Job } from "@/components/JobCard";
+import { type Job } from "@/components/JobCard";
+import JobList from "@/components/JobList";
 
 type Profile = { role_titles: string[]; skills: string[]; location: string | null; years_experience: number | null } | null;
 type Prefs = { location_scope?: string; remote_mode?: string; preferred_locations?: string[]; freshness?: string };
@@ -156,33 +157,24 @@ export default function AccountPage() {
                 <button onClick={findNow} disabled={finding} className="mini cta-sm">{finding ? "Searching…" : "Find new jobs now"}</button>
               </div>
               {findMsg && <div className="msg ok">{findMsg}</div>}
-              {(acct?.jobs?.length ?? 0) === 0 ? (
-                <p className="hint">No jobs yet — tap "Find new jobs now" or wait for the daily run.</p>
-              ) : (
-                <ul className="jobs">{acct!.jobs!.map((j) => <JobCard key={j.canonical_key} job={j as Job} />)}</ul>
-              )}
+              <JobList jobs={(acct?.jobs ?? []) as Job[]}
+                emptyText='No jobs yet — tap "Find new jobs now" or wait for the daily run.' />
             </div>
           )}
 
           {tab === "saved" && (
             <div className="card">
               <h2 style={{ marginTop: 0 }}>Saved jobs</h2>
-              {(acct?.saved?.length ?? 0) === 0 ? (
-                <p className="hint">Nothing saved yet. Tap ☆ Save on any job to keep it here.</p>
-              ) : (
-                <ul className="jobs">{acct!.saved!.map((j) => <JobCard key={"s" + j.canonical_key} job={j as Job} />)}</ul>
-              )}
+              <JobList jobs={(acct?.saved ?? []) as Job[]}
+                emptyText="Nothing saved yet. Tap ☆ Save on any job to keep it here." />
             </div>
           )}
 
           {tab === "applied" && (
             <div className="card">
               <h2 style={{ marginTop: 0 }}>Applications</h2>
-              {(acct?.applied?.length ?? 0) === 0 ? (
-                <p className="hint">No applications tracked yet. Set a job's status to "Applied" to track it.</p>
-              ) : (
-                <ul className="jobs">{acct!.applied!.map((j) => <JobCard key={"a" + j.canonical_key} job={j as Job} />)}</ul>
-              )}
+              <JobList jobs={(acct?.applied ?? []) as Job[]}
+                emptyText='No applications tracked yet. Set a job&apos;s status to "Applied" to track it.' />
             </div>
           )}
 
