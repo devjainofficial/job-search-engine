@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     jooble_api_key: str = Field("", alias="JOOBLE_API_KEY")
     careerjet_affid: str = Field("", alias="CAREERJET_AFFID")
 
+    # SerpApi Google Jobs (same data as JSearch). Off unless set. Free ~250/mo.
+    serpapi_key: str = Field("", alias="SERPAPI_KEY")
+
     # Cap jobs per digest so a single run cannot spam a user.
     max_jobs_per_digest: int = Field(10, alias="MAX_JOBS_PER_DIGEST")
 

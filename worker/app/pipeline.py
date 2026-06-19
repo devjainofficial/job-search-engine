@@ -28,10 +28,12 @@ from app.sources.jsearch import JSearchSource
 from app.sources.lever import LeverSource
 from app.sources.remoteok import RemoteOKSource
 from app.sources.remotive import RemotiveSource
+from app.sources.serpapi_jobs import SerpApiJobsSource
 
 # Query sources support server-side keyword search (fetched per distinct query).
-# Adzuna, JSearch, Jooble, Careerjet are off unless their keys are set.
-QUERY_SOURCES = [RemotiveSource(), AdzunaSource(), JSearchSource(), JoobleSource(), CareerjetSource()]
+# Adzuna, JSearch, Jooble, Careerjet, SerpApi are off unless their keys are set.
+QUERY_SOURCES = [RemotiveSource(), AdzunaSource(), JSearchSource(), JoobleSource(),
+                 CareerjetSource(), SerpApiJobsSource()]
 
 # Bulk sources return a firehose or whole company boards (fetched once per run).
 BULK_SOURCES = [RemoteOKSource(), ArbeitnowSource(),
