@@ -64,15 +64,17 @@ def description_hash(description: str | None) -> str:
 def canonical_key(
     company: str | None,
     title: str | None,
-    location: str | None,
+    location: str | None = None,
     description: str | None = None,
 ) -> str:
-    """Build the dedup key: company + normalized title + location + desc hash."""
-    return "|".join(
-        [
-            normalize_company(company),
-            normalize_title(title),
-            normalize_location(location),
-            description_hash(description),
-        ]
-    )
+    """Dedup key = company + normalized title only.
+
+    Aggregators (JSearch, SerpApi/Google Jobs, Adzuna, Jooble, Careerjet) return
+    the SAME role with different location granularity ("India" vs "Bengaluru,
+    Karnataka, IN") and different description snippets. Keying on those caused the
+    same job to appear multiple times. Company + normalized title is the stable
+    identity, so the same role collapses to one across providers and across days.
+    (location/description are still accepted for call-site compatibility but are
+    intentionally not part of the key.)
+    """
+    return f"{normalize_company(company)}|{normalize_title(title)}"

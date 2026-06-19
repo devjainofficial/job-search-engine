@@ -18,9 +18,10 @@ def _job(company: str, title: str, location: str) -> CanonicalJob:
 
 
 def test_per_company_cap_limits_one_employer():
-    # One company posts the same role across six cities.
-    flood = [_job("LawnStarter", "Software Engineer", city)
-             for city in ("Belo", "Floria", "Porto", "Sao Paulo", "Campinas", "Recife")]
+    # One company posts several DISTINCT software roles (distinct titles -> distinct
+    # keys, so dedupe keeps them); the per-company cap should still limit to 2.
+    flood = [_job("LawnStarter", f"Software Engineer {team}", "Remote")
+             for team in ("Payments", "Search", "Growth", "Platform", "Mobile", "Data")]
     others = [_job("Acme", "Software Engineer", "Remote"),
               _job("Globex", "Software Engineer", "Remote")]
     profile = Profile(role_titles=["Software Engineer"])
@@ -30,6 +31,19 @@ def test_per_company_cap_limits_one_employer():
     companies = [m.job.company for m in matches]
     assert companies.count("LawnStarter") == 2  # capped, not 6
     assert "Acme" in companies and "Globex" in companies
+
+
+def test_same_role_from_two_sources_dedupes_to_one():
+    # Same company+title from two providers (different apply types) -> one entry,
+    # keeping the direct-apply variant.
+    a = _job("Zoom", "Software Engineer", "India")          # job_detail by default
+    a.apply_url_type = "job_detail"; a.apply_url = "https://serpapi/x"
+    b = _job("Zoom", "Software Engineer", "Bengaluru, IN")
+    b.apply_url_type = "direct_apply"; b.apply_url = "https://zoom.us/apply"
+    profile = Profile(role_titles=["Software Engineer"])
+    matches = match_jobs([a, b], profile, limit=10)
+    assert len(matches) == 1
+    assert matches[0].job.apply_url == "https://zoom.us/apply"  # best variant kept
 
 
 def test_limit_is_respected_after_cap():

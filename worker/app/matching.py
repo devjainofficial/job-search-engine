@@ -12,8 +12,19 @@ from datetime import datetime, timezone
 
 from app.canonical import _slug, normalize_company
 from app.geo import OUT_COUNTRY, classify_location, is_remote, location_boost, location_matches
-from app.models import CanonicalJob, MatchedJob, Profile
+from app.models import (
+    APPLY_COMPANY_CAREERS,
+    APPLY_DIRECT,
+    APPLY_JOB_DETAIL,
+    APPLY_SOURCE_SEARCH,
+    CanonicalJob,
+    MatchedJob,
+    Profile,
+)
 from app.seniority import seniority_ok
+
+# Preference when collapsing duplicate variants of the same job: best apply link first.
+_APPLY_RANK = {APPLY_DIRECT: 0, APPLY_JOB_DETAIL: 1, APPLY_COMPANY_CAREERS: 2, APPLY_SOURCE_SEARCH: 3}
 
 
 def _age_days(posted_at: datetime | None, now: datetime) -> float | None:
@@ -23,6 +34,22 @@ def _age_days(posted_at: datetime | None, now: datetime) -> float | None:
     if posted_at.tzinfo is None:
         posted_at = posted_at.replace(tzinfo=timezone.utc)
     return (now - posted_at).total_seconds() / 86400
+
+
+def _variant_key(job: CanonicalJob, now: datetime) -> tuple:
+    age = _age_days(job.posted_at, now)
+    return (_APPLY_RANK.get(job.apply_url_type, 4), age if age is not None else 1e9)
+
+
+def dedupe_variants(jobs: list[CanonicalJob], now: datetime) -> list[CanonicalJob]:
+    """Collapse jobs that share a canonical_key (same role from multiple sources),
+    keeping the best variant: direct apply link first, then the freshest."""
+    best: dict[str, CanonicalJob] = {}
+    for j in jobs:
+        cur = best.get(j.canonical_key)
+        if cur is None or _variant_key(j, now) < _variant_key(cur, now):
+            best[j.canonical_key] = j
+    return list(best.values())
 
 
 def recency_boost(posted_at: datetime | None, now: datetime) -> float:
@@ -201,6 +228,9 @@ def match_jobs(
     now = datetime.now(timezone.utc)
     if max_age_days is not None:
         relevant = [j for j in relevant if (_age_days(j.posted_at, now) or 0) <= max_age_days]
+
+    # Collapse the same role coming from multiple providers into one entry.
+    relevant = dedupe_variants(relevant, now)
 
     def score(j: CanonicalJob) -> float:
         return score_job(j, profile) + recency_boost(j.posted_at, now)
