@@ -40,6 +40,13 @@ export async function GET() {
     .order("sent_at", { ascending: false })
     .limit(50);
 
+  // Per-job actions (save / feedback / status) for this user.
+  const { data: actions } = await supabase
+    .from("job_actions")
+    .select("canonical_key, saved, feedback, status, title, company, location, apply_url, apply_url_type, source")
+    .eq("user_id", user.id);
+  const actByKey = new Map((actions ?? []).map((a) => [a.canonical_key, a]));
+
   let jobs: unknown[] = [];
   const keys = (sent ?? []).map((r) => r.canonical_key);
   if (keys.length) {
@@ -51,13 +58,18 @@ export async function GET() {
     jobs = (sent ?? [])
       .map((r) => {
         const j = byKey.get(r.canonical_key);
-        return j ? { ...j, sent_at: r.sent_at } : null;
+        if (!j) return null;
+        const a = actByKey.get(r.canonical_key);
+        return { ...j, sent_at: r.sent_at, saved: a?.saved ?? false, feedback: a?.feedback ?? null, status: a?.status ?? null };
       })
       .filter(Boolean);
   }
 
+  const saved = (actions ?? []).filter((a) => a.saved).map((a) => ({ ...a }));
+  const applied = (actions ?? []).filter((a) => a.status).map((a) => ({ ...a }));
+
   return NextResponse.json({
-    found: true, email, prefs: user.channel_prefs ?? {}, profile, jobs,
+    found: true, email, prefs: user.channel_prefs ?? {}, profile, jobs, saved, applied,
     connectUrl: telegramConnectUrl(user.id),
     onboarded: !!profile?.parsed_at,
   });

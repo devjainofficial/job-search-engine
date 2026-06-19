@@ -112,6 +112,21 @@ a { color: var(--accent); }
 
 button.danger { background: var(--err); }
 
+/* Job actions (save / vote / status / draft) */
+.job.muted { opacity: 0.5; }
+.job-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; }
+button.mini, select.mini {
+  width: auto; margin: 0; padding: 5px 10px; font-size: 0.8rem; font-weight: 500;
+  background: #0e1422; color: var(--muted); border: 1px solid var(--border); border-radius: 7px; cursor: pointer;
+}
+button.mini.on { color: var(--fg); border-color: var(--accent); background: rgba(79,140,255,0.12); }
+.assist {
+  margin-top: 12px; padding: 12px 14px; background: #0e1422; border: 1px solid var(--border); border-radius: 10px;
+}
+.assist-h { font-size: 0.82rem; font-weight: 600; color: var(--muted); margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+.assist-h:first-child { margin-top: 0; }
+.assist-body { white-space: pre-wrap; font-size: 0.88rem; margin: 4px 0 0; }
+
 /* Top nav */
 .topnav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 26px; }
 .topnav .brand { font-weight: 700; letter-spacing: 0.2px; }

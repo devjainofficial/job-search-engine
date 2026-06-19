@@ -86,6 +86,23 @@ def get_sent_jobs_detail(user_id: str, limit: int = 50) -> list[dict]:
     return out
 
 
+def get_profile(user_id: str) -> dict | None:
+    res = get_client().table("profiles").select("*").eq("user_id", user_id).limit(1).execute()
+    return res.data[0] if res.data else None
+
+
+def get_cached_job(canonical_key: str) -> dict | None:
+    res = (
+        get_client()
+        .table("job_cache")
+        .select("title, company, location, description, apply_url, source")
+        .eq("canonical_key", canonical_key)
+        .limit(1)
+        .execute()
+    )
+    return res.data[0] if res.data else None
+
+
 def get_raw_resume_path(user_id: str) -> str | None:
     res = get_client().table("profiles").select("raw_resume_path").eq("user_id", user_id).execute()
     return res.data[0]["raw_resume_path"] if res.data else None
@@ -153,6 +170,7 @@ def upsert_jobs(jobs: list[CanonicalJob]) -> None:
             "apply_url": j.apply_url,
             "apply_url_type": j.apply_url_type,
             "posted_at": j.posted_at.isoformat() if j.posted_at else None,
+            "description": (j.description or "")[:8000],  # for AI apply-assist
             "raw_payload": j.raw_payload,
             "fetched_at": "now()",
         }
@@ -199,6 +217,19 @@ def get_sent_keys(user_id: str) -> set[str]:
         .table("sent_jobs")
         .select("canonical_key")
         .eq("user_id", user_id)
+        .execute()
+    )
+    return {r["canonical_key"] for r in (res.data or [])}
+
+
+def get_suppressed_keys(user_id: str) -> set[str]:
+    """Jobs the user thumbed down — never show these again."""
+    res = (
+        get_client()
+        .table("job_actions")
+        .select("canonical_key")
+        .eq("user_id", user_id)
+        .eq("feedback", "down")
         .execute()
     )
     return {r["canonical_key"] for r in (res.data or [])}

@@ -17,9 +17,12 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from pydantic import BaseModel
 
 from app.config import get_settings
+from app.apply_assist import generate_application
 from app.db import (
     delete_user_data,
     download_resume,
+    get_cached_job,
+    get_profile,
     get_raw_resume_path,
     get_sent_jobs_detail,
     upsert_profile,
@@ -137,6 +140,23 @@ async def telegram_webhook(request: Request) -> dict:
             raise HTTPException(status_code=403, detail="bad webhook secret")
     update = await request.json()
     return handle_update(update)
+
+
+class AssistRequest(BaseModel):
+    user_id: str
+    canonical_key: str
+
+
+@app.post("/apply-assist")
+def apply_assist_endpoint(body: AssistRequest) -> dict:
+    """Generate a tailored cover letter + screening answers for one job."""
+    profile = get_profile(body.user_id)
+    job = get_cached_job(body.canonical_key)
+    if not profile:
+        raise HTTPException(status_code=404, detail="profile not found")
+    if not job:
+        raise HTTPException(status_code=404, detail="job not found (it may have expired)")
+    return generate_application(profile, job)
 
 
 @app.delete("/users/{user_id}")

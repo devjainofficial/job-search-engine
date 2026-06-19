@@ -10,6 +10,7 @@ from app.config import get_settings
 from app.db import (
     get_active_users_with_profiles,
     get_sent_keys,
+    get_suppressed_keys,
     get_user_for_run,
     prune_old_jobs,
     record_sent,
@@ -119,8 +120,8 @@ def run_for_user(user_id: str, limit: int | None = None, send: bool = True) -> d
             candidates += _fetch_adzuna_city(query, city.strip())
     upsert_jobs(candidates)
 
-    sent = get_sent_keys(user_id)
-    fresh = [j for j in candidates if j.canonical_key not in sent]
+    skip = get_sent_keys(user_id) | get_suppressed_keys(user_id)
+    fresh = [j for j in candidates if j.canonical_key not in skip]
     matches = match_jobs(
         fresh, profile, limit or settings.max_jobs_per_digest,
         max_per_company=settings.max_per_company,
@@ -195,8 +196,8 @@ def run_daily() -> dict:
         for city in preferred_locations:
             candidates = candidates + jobs_by_city.get((query, city.strip()), [])
 
-        sent_keys = get_sent_keys(user_id)
-        fresh = [j for j in candidates if j.canonical_key not in sent_keys]
+        skip = get_sent_keys(user_id) | get_suppressed_keys(user_id)
+        fresh = [j for j in candidates if j.canonical_key not in skip]
         matches = match_jobs(
             fresh,
             profile,

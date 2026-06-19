@@ -3,13 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import TagInput from "@/components/TagInput";
+import JobCard, { type Job } from "@/components/JobCard";
 
-type Job = { title: string; company: string; location: string | null; apply_url: string; apply_url_type: string; source: string; sent_at: string };
 type Profile = { role_titles: string[]; skills: string[]; location: string | null; years_experience: number | null } | null;
 type Prefs = { location_scope?: string; remote_mode?: string; preferred_locations?: string[] };
-type Account = { found: boolean; email: string; prefs?: Prefs; profile?: Profile; jobs?: Job[] };
-
-const APPLY_LABEL: Record<string, string> = { direct_apply: "Apply", job_detail: "View posting", company_careers: "Careers", source_search: "Search" };
+type Account = { found: boolean; email: string; prefs?: Prefs; profile?: Profile; jobs?: Job[]; saved?: Job[]; applied?: Job[] };
 
 export default function AccountPage() {
   const supabase = supabaseBrowser();
@@ -168,18 +166,24 @@ export default function AccountPage() {
               <p className="hint">No jobs yet. They arrive on the next daily run.</p>
             ) : (
               <ul className="jobs">
-                {acct!.jobs!.map((j, i) => (
-                  <li key={i} className="job">
-                    <div className="job-main">
-                      <div className="job-title">{j.title}</div>
-                      <div className="job-meta">{j.company}{j.location ? ` · ${j.location}` : ""} · <span className="src">{j.source}</span></div>
-                    </div>
-                    <a className="apply" href={j.apply_url} target="_blank" rel="noreferrer">{APPLY_LABEL[j.apply_url_type] ?? "Open"}</a>
-                  </li>
-                ))}
+                {acct!.jobs!.map((j) => <JobCard key={j.canonical_key} job={j as Job} />)}
               </ul>
             )}
           </div>
+
+          {(acct?.saved?.length ?? 0) > 0 && (
+            <div className="card" style={{ marginBottom: 18 }}>
+              <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>★ Saved ({acct!.saved!.length})</h2>
+              <ul className="jobs">{acct!.saved!.map((j) => <JobCard key={"s" + j.canonical_key} job={j as Job} />)}</ul>
+            </div>
+          )}
+
+          {(acct?.applied?.length ?? 0) > 0 && (
+            <div className="card" style={{ marginBottom: 18 }}>
+              <h2 style={{ fontSize: "1.05rem", marginTop: 0 }}>Applications ({acct!.applied!.length})</h2>
+              <ul className="jobs">{acct!.applied!.map((j) => <JobCard key={"a" + j.canonical_key} job={j as Job} />)}</ul>
+            </div>
+          )}
 
           <div className="card">
             <button className="danger" onClick={deleteAccount}>Delete my account and data</button>
