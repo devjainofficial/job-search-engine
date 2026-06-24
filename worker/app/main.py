@@ -20,16 +20,13 @@ from app.config import get_settings
 from app.apply_assist import generate_application
 from app.db import (
     delete_user_data,
-    download_resume,
     get_cached_job,
     get_profile,
     get_raw_resume_path,
     get_sent_jobs_detail,
-    upsert_profile,
 )
-from app.parsing.resume_parser import parse_resume_text
-from app.parsing.text_extract import extract_text_from_bytes
 from app.pipeline import run_daily, run_for_user
+from app.services import parse_user_resume
 from app.telegram_bot import handle_update
 
 app = FastAPI(title="job-search-app worker")
@@ -93,14 +90,12 @@ def run_daily_endpoint() -> dict:
 def parse_resume_endpoint(body: ParseRequest) -> dict:
     """Parse-once: download the user's uploaded resume, extract + parse it, and
     store the structured profile. Called by the web app after upload."""
-    path = get_raw_resume_path(body.user_id)
-    if not path:
+    if not get_raw_resume_path(body.user_id):
         raise HTTPException(status_code=404, detail="no resume on file for user")
-    text = extract_text_from_bytes(download_resume(path), path)
-    if not text.strip():
+    try:
+        profile = parse_user_resume(body.user_id)
+    except ValueError:
         raise HTTPException(status_code=422, detail="no text extracted from resume")
-    profile = parse_resume_text(text)
-    upsert_profile(body.user_id, profile, path)
     return {
         "user_id": body.user_id,
         "role_titles": profile.role_titles,

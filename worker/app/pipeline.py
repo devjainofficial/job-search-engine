@@ -147,8 +147,25 @@ def run_for_user(user_id: str, limit: int | None = None, send: bool = True) -> d
     return {"new_jobs": len(matches), "sent_to_telegram": delivered}
 
 
+def _heal_unparsed() -> int:
+    """Retry parsing for users whose résumé never finished parsing, so a transient
+    failure at signup doesn't permanently exclude them from the daily digest."""
+    from app.db import get_unparsed_users
+    from app.services import parse_user_resume
+
+    healed = 0
+    for u in get_unparsed_users():
+        try:
+            if parse_user_resume(u["user_id"]):
+                healed += 1
+        except Exception as exc:
+            print(f"[heal] parse retry failed for {u['user_id']}: {exc}")
+    return healed
+
+
 def run_daily() -> dict:
     settings = get_settings()
+    _heal_unparsed()  # self-heal failed parses before matching
     users = get_active_users_with_profiles()
 
     # 1. Distinct queries across all users.

@@ -112,6 +112,20 @@ def download_resume(path: str) -> bytes:
     return get_client().storage.from_(_RESUME_BUCKET).download(path)
 
 
+def get_unparsed_users() -> list[dict]:
+    """Profiles that have an uploaded résumé but never finished parsing (e.g. a
+    transient Gemini error). Used to self-heal on the daily run."""
+    res = (
+        get_client()
+        .table("profiles")
+        .select("user_id, raw_resume_path")
+        .is_("parsed_at", "null")
+        .not_.is_("raw_resume_path", "null")
+        .execute()
+    )
+    return res.data or []
+
+
 def get_user_for_run(user_id: str) -> dict | None:
     """Load one user (with profile + saved searches) for an on-demand run."""
     res = (
