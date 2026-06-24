@@ -43,6 +43,19 @@ export default function AccountPage() {
     if (res.ok) setProfSaved(true);
   }
 
+  const [reparsing, setReparsing] = useState(false);
+  const [reparseMsg, setReparseMsg] = useState<string | null>(null);
+  async function reparse() {
+    setReparsing(true); setReparseMsg(null);
+    try {
+      const res = await fetch("/api/account/reparse", { method: "POST" });
+      const d = await res.json();
+      if (!res.ok) { setReparseMsg(d.error ?? "Couldn't re-parse."); }
+      else { setRoles(d.role_titles ?? []); setSkills(d.skills ?? []); setReparseMsg("Re-parsed from your résumé."); }
+    } catch { setReparseMsg("Network error."); }
+    finally { setReparsing(false); }
+  }
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       if (data.user) loadAccount();
@@ -187,8 +200,12 @@ export default function AccountPage() {
                 <TagInput value={roles} onChange={setRoles} placeholder="e.g. Full-Stack Developer" max={8} />
                 <label style={{ marginTop: 16 }}>Skills</label>
                 <TagInput value={skills} onChange={setSkills} placeholder="e.g. React, Node.js, Python" max={30} />
-                <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px", marginTop: 16 }}>Save profile</button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                  <button onClick={saveProfile} style={{ width: "auto", padding: "8px 14px" }}>Save profile</button>
+                  <button className="mini" onClick={reparse} disabled={reparsing}>{reparsing ? "Re-parsing…" : "↻ Re-parse my résumé"}</button>
+                </div>
                 {profSaved && <p className="hint" style={{ color: "var(--ok)" }}>Saved. Applies on your next search.</p>}
+                {reparseMsg && <p className="hint" style={{ color: "var(--ok)" }}>{reparseMsg}</p>}
                 {acct?.profile?.location && <p className="hint">Résumé location: {acct.profile.location}</p>}
               </div>
 
