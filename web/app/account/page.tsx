@@ -107,7 +107,7 @@ export default function AccountPage() {
   if (step === "loading") {
     return (
       <main className="wrap">
-        <div className="topnav"><span className="brand">Daily Job Digest</span></div>
+        <div className="topnav"><span className="brand">Job Search Engine</span></div>
         <div className="sk sk-tabs" />
         <div className="card">
           {[0, 1, 2, 3].map((i) => (
@@ -149,7 +149,7 @@ export default function AccountPage() {
   return (
     <main className="wrap">
       <div className="topnav">
-        <span className="brand">Daily Job Digest</span>
+        <span className="brand">Job Search Engine</span>
         <span className="hint" style={{ margin: 0 }}>{acct?.email} · <a onClick={logout} style={{ cursor: "pointer" }}>Sign out</a></span>
       </div>
 

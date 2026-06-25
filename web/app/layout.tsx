@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Daily Job Digest",
+  title: "Job Search Engine",
   description: "Upload your resume, get matched jobs with apply links on Telegram.",
 };
 
