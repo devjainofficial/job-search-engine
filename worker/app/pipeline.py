@@ -6,6 +6,8 @@ once total. Everything is cached, then matched to each user in memory. 500 users
 sharing a few role clusters cost a handful of fetches, not thousands.
 """
 
+from concurrent.futures import ThreadPoolExecutor
+
 from app.config import get_settings
 from app.db import (
     get_active_users_with_profiles,
@@ -84,14 +86,32 @@ def _fetch_bulk() -> list[CanonicalJob]:
     return fetch_many(BULK_SOURCES, _fetch_one_bulk, max_workers=len(BULK_SOURCES))
 
 
+def _fetch_one_query_source(source, query: str) -> list[CanonicalJob]:
+    try:
+        return source.fetch(query)
+    except Exception as exc:
+        print(f"[run_daily] query source {source.name} failed for '{query}': {exc}")
+        return []
+
+
 def _fetch_query(query: str) -> list[CanonicalJob]:
-    collected: list[CanonicalJob] = []
-    for source in QUERY_SOURCES:
-        try:
-            collected.extend(source.fetch(query))
-        except Exception as exc:
-            print(f"[run_daily] query source {source.name} failed for '{query}': {exc}")
-    return collected
+    """Fetch all query sources for one query, concurrently."""
+    return fetch_many(QUERY_SOURCES, lambda s: _fetch_one_query_source(s, query), max_workers=len(QUERY_SOURCES))
+
+
+def _fetch_queries(queries: list[str]) -> dict[str, list[CanonicalJob]]:
+    """Fetch every distinct query in parallel (each itself fans out over sources)."""
+    if not queries:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(queries))) as pool:
+        return dict(zip(queries, pool.map(_fetch_query, queries)))
+
+
+def _fetch_cities(pairs: list[tuple[str, str]]) -> dict[tuple[str, str], list[CanonicalJob]]:
+    if not pairs:
+        return {}
+    with ThreadPoolExecutor(max_workers=min(8, len(pairs))) as pool:
+        return dict(zip(pairs, pool.map(lambda p: _fetch_adzuna_city(*p), pairs)))
 
 
 def _fetch_adzuna_city(query: str, city: str) -> list[CanonicalJob]:
@@ -178,7 +198,7 @@ def run_daily() -> dict:
 
     # 2. Fetch bulk sources once, query sources once per distinct query. Cache all.
     bulk_pool = _fetch_bulk()
-    jobs_by_query: dict[str, list[CanonicalJob]] = {q: _fetch_query(q) for q in distinct_queries}
+    jobs_by_query = _fetch_queries(distinct_queries)
 
     # 2b. City-specific fetches: for users with preferred cities, pull Adzuna with
     # where=<city> so city filtering has real depth. Batched by (query, city).
@@ -190,9 +210,7 @@ def run_daily() -> dict:
         for city in (u.get("channel_prefs") or {}).get("preferred_locations") or []:
             if city.strip():
                 city_pairs.add((q, city.strip()))
-    jobs_by_city: dict[tuple[str, str], list[CanonicalJob]] = {
-        pair: _fetch_adzuna_city(*pair) for pair in city_pairs
-    }
+    jobs_by_city = _fetch_cities(list(city_pairs))
 
     all_jobs = list(bulk_pool)
     for jobs in jobs_by_query.values():

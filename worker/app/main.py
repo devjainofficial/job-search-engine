@@ -82,8 +82,11 @@ def register_webhook_endpoint() -> dict:
 
 
 @app.post("/run-daily")
-def run_daily_endpoint() -> dict:
-    return run_daily()
+def run_daily_endpoint(background_tasks: BackgroundTasks) -> dict:
+    """Kick off the daily run in the background and ack immediately, so the
+    scheduler (curl) never blocks on the multi-source fetch + cold start."""
+    background_tasks.add_task(run_daily)
+    return {"started": True}
 
 
 @app.post("/parse-resume")
