@@ -39,6 +39,20 @@ def upsert_profile(user_id: str, profile: Profile, raw_resume_path: str | None) 
 _RESUME_BUCKET = "resumes"
 
 
+def chat_id_in_use_by_other(chat_id: str, user_id: str) -> bool:
+    """True if this Telegram chat is already linked to a different account."""
+    res = (
+        get_client()
+        .table("users")
+        .select("id")
+        .eq("telegram_chat_id", chat_id)
+        .neq("id", user_id)
+        .limit(1)
+        .execute()
+    )
+    return bool(res.data)
+
+
 def set_telegram_chat_id(user_id: str, chat_id: str) -> str | None:
     """Store the chat_id for a user (called after a verified connect token).
     Returns the user_id if the row exists, else None."""

@@ -9,7 +9,7 @@ import httpx
 
 from app.config import get_settings
 from app.connect_token import verify_token
-from app.db import set_telegram_chat_id
+from app.db import chat_id_in_use_by_other, set_telegram_chat_id
 
 
 def parse_start_token(update: dict) -> str | None:
@@ -43,7 +43,14 @@ def handle_update(update: dict) -> dict:
 
     if token and chat_id:
         user_id = verify_token(token)
-        if user_id and set_telegram_chat_id(user_id, chat_id):
+        if not user_id:
+            send_message(chat_id, "That link looks invalid. Please re-open the connect link from the site.")
+            return {"action": "invalid_token"}
+        # One Telegram per account: refuse to link a chat already used elsewhere.
+        if chat_id_in_use_by_other(chat_id, user_id):
+            send_message(chat_id, "⚠️ This Telegram is already connected to another account. Each Telegram can be linked to only one account.")
+            return {"action": "chat_in_use"}
+        if set_telegram_chat_id(user_id, chat_id):
             send_message(chat_id, "✅ Connected. You'll get your daily job digest here.")
             return {"action": "connected", "user_id": user_id}
         send_message(chat_id, "That link looks invalid. Please re-open the connect link from the site.")
